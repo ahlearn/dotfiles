@@ -1,27 +1,33 @@
-;; An Emacs configuration for a stubborn modern-GUI-editor user.
+;; An Emacs configuration from a stubborn modern-GUI-editor user.
+;; E.g., most keybindings are changed to be compatible with other common systems/editors nowadays.
+;; Feedbacks, comments, and questions are welcomed.
 ;;
-;; Config rules:
+;; Config style:
 ;; + Modernization: e.g., http://ergoemacs.org/emacs/emacs_modernization.html
-;;   - Eliminate the use of marker, which is not conventional nowadays; use shift selection instead
+;;   - Eliminate the use of marker, which is not conventional nowadays; use shift selection instead.
 ;;   - Easy Moving From Vscode To Emacs https://krsoninikhil.github.io/2018/12/15/easy-moving-from-vscode-to-emacs/
 ;; + Geared toward (in descending order) Mac OS, Linux, and Terminal.
-;; + Minimize mode-specific settings, e.g., don't use highlight-thing-excluded-major-modes
+;; + Minimize mode-specific settings, e.g., don't use highlight-thing-excluded-major-modes.
+;; + Minimize startup time, without using Emacs server.
+;; + Minimize the size of this file, and M-x describe-personal-keybindings
 ;;
-;; Keybinding rules:
-;; + Mostly compatible with default Mac OS X system key bindings http://www.hcs.harvard.edu/~jrus/site/system-bindings.html
+;; Keybinding style:
 ;; + Use CUA shortcuts
-;; + Use meta-key-based (instead of ctrl-key-based) keybindings, because Emacs Keys are Painful http://ergoemacs.org/emacs/emacs_kb_shortcuts_pain.html
-;; + Minimize number of shortcuts by merging similar functions, e.g., use helm-mini instead of helm-buffers-list, helm-locate, etc
-;; + Minimize use of function keys, which is not convenient, e.g., don't use <f11> as the prefix key
+;; + Movement keys are the same as default Mac OS X system key bindings http://www.hcs.harvard.edu/~jrus/site/system-bindings.html
+;; + Dired keys partially compatible with Google drive on web https://support.google.com/drive/answer/2563044
+;; + Partially compatible with keyboard shortcuts for Google Docs https://support.google.com/docs/answer/179738
+;; + Mainly meta-key-based, which is more ergonomical than the original ctrl-key-based setting http://ergoemacs.org/emacs/emacs_kb_shortcuts_pain.html
+;; + Minimize number of shortcuts by using more function composition (like vim), and merging similar functions, e.g., use helm-mini instead of helm-buffers-list, helm-locate, etc.
+;; + Minimize use of function keys, which is not convenient, e.g., don't use <f11> as the prefix key.
 ;;
 ;; Coding style:
-;; + Names of most user-defined and interactive functions are prefixed by "my-"
-;; + Minimize the use of require or load, use eval-after-load instead
-;; + Single self-contained config file (packages will be downloaded automatically)
+;; + Names of most user-defined and interactive functions are prefixed by "my-".
+;; + Minimize the use of require or load, use eval-after-load instead.
+;; + Single self-contained config file (packages will be downloaded automatically on the first run), no extra .el file.
 
+
+;;; Startup hooks, speedup tricks
 ;; (setq debug-on-error t)  ; uncomment this line for debug
-
-;;; Speedup, startup hooks
 (setq file-name-handler-alist-original file-name-handler-alist) (setq file-name-handler-alist nil)  ; reduced startup time by about 15% https://emacs.stackexchange.com/questions/34342 https://www.reddit.com/r/emacs/comments/3kqt6e
 (setq inhibit-startup-screen t)  ; no splash screen
 (setq initial-scratch-message nil)
@@ -46,56 +52,27 @@
    (setq gc-cons-threshold gc-cons-threshold-original)  ; Reset `gc-cons-threshold' to its default value. http://emacs.stackexchange.com/a/16595/12987
    (setq file-name-handler-alist file-name-handler-alist-original)
    (makunbound 'file-name-handler-alist-original)
-   (message "init-time = %s, last session = %s" (emacs-init-time) (shell-command-to-string (concat "tail -n1 " my-doc-directory "z.emacs_sessions.txt")))
+   (message "current-init-time = %s, last session = %s" (emacs-init-time) (shell-command-to-string (concat "tail -n1 " my-doc-directory "z.emacs_sessions.txt")))
    ))
 (add-hook 'focus-out-hook #'garbage-collect)  ; Collect garbage when Emacs is focused out to make it faster https://github.com/elnawe/.emacs.d/blob/master/configuration.org
-(add-hook 'kill-emacs-hook (lambda () (append-to-file (concat "\n" system-name " " (format-time-string "%a, %Y/%m/%d, %l:%M %p")) nil (concat my-doc-directory "z.emacs_sessions.txt")) t))
+(add-hook 'kill-emacs-hook (lambda () (append-to-file (concat "\n" system-name " " (format-time-string "%a, %Y/%m/%d, %l:%M %p") ", init time " (emacs-init-time)) nil (concat my-doc-directory "z.emacs_sessions.txt")) t))
 (add-hook
  'emacs-startup-hook
  '(lambda ()
     (unless (buffer-file-name)  ; open following file only when current buffer is scratch https://emacs.stackexchange.com/questions/825
-      (if (eq system-type 'gnu/linux)
-          (find-file (concat my-doc-directory "work.txt"))
-        (find-file (concat my-doc-directory "personal.txt")))
-      (beginning-of-buffer)
-      )
-    (if (eq system-type 'darwin)
-        (use-package openwith
-          :config
-          ;; https://emacs.stackexchange.com/questions/3105/how-to-use-an-external-program-as-the-default-way-to-open-pdfs-from-emacs
-          (setq openwith-associations
-                '(("\\.pdf\\'" "/Applications/Preview.app/Contents/MacOS/Preview" (file))
-                  ("\\.mp3\\'" "/Applications/VLC.app/Contents/MacOS/VLC" (file))))
-          (openwith-mode t)
-          ))
-    ))
-
-;;; Display
-(setq initial-major-mode 'org-mode)  ; i seldom use the default lisp-interaction-mode (which rebinds C-j)
+      (if (window-system)
+          (if (eq system-type 'gnu/linux)
+              (find-file (concat my-doc-directory "work.txt"))
+            (find-file (concat my-doc-directory "personal.txt")))
+        (end-of-buffer)
+        (shell-pop 1)  ; start with shell in terminal mode
+        (keyboard-escape-quit)))))  ; to get a full window
 (add-to-list 'initial-frame-alist '(fullscreen . maximized))  ; better than manually setting width and height http://emacs.stackexchange.com/a/3008
 (setq-default frame-title-format "%b (%f)") ; show file path in frame title http://stackoverflow.com/a/12009623 note: don't rely on it, as it is N/A in terminal
 ;; (menu-bar-mode -1)  ; TODO try out menu
 (setq-default cursor-type '(bar . 3)) (blink-cursor-mode t)
 (setq blink-cursor-blinks 0)  ; blinks forever
 (delete-selection-mode t)  ; delete seleted text when typing https://www.emacswiki.org/emacs/DeleteSelectionMode
-(setq redisplay-highlight-region-function  ; https://www.reddit.com/r/emacs/comments/345by9/having_the_background_face_for_selection_region/
-      (lambda (start end window rol)
-        (if (not (overlayp rol))
-            (let ((nrol (make-overlay start end)))
-              (funcall redisplay-unhighlight-region-function rol)
-              (overlay-put nrol 'window window)
-              (overlay-put nrol 'face 'region)
-              ;; Normal priority so that a large region doesn't hide all the
-              ;; overlays within it, but high secondary priority so that if it
-              ;; ends/starts in the middle of a small overlay, that small overlay
-              ;; won't hide the region's boundaries.
-              (overlay-put nrol 'priority '(10000 . 10000))
-              nrol)
-          (unless (and (eq (overlay-buffer rol) (current-buffer))
-                       (eq (overlay-start rol) start)
-                       (eq (overlay-end rol) end))
-            (move-overlay rol start end (current-buffer)))
-          rol)))
 (setq-default show-trailing-whitespace t)  ; http://trey-jackson.blogspot.com/2008/03/emacs-tip-12-show-trailing-whitespace.html
 (setq-default indent-tabs-mode nil)        ; use space instead of tab https://www.emacswiki.org/emacs/NoTabs as we have auto-indent in every mode anyway
 (setq-default tab-width 2)
@@ -104,8 +81,214 @@
 (setq sentence-end-double-space nil)  ; don't assume that sentences should have two spaces after periods
 (defalias 'yes-or-no-p 'y-or-n-p)     ; answering just 'y' or 'n' will do
 
-;;; for emacs -nw, terminal mode, TTY
-(when (not (window-system))
+
+;;; use-package
+;; user manual https://github.com/jwiegley/use-package/blob/master/use-package.org
+(require 'package)  ; https://www.emacswiki.org/emacs/ELPA https://github.com/durantschoon/.emacs.d/tree/boilerplate-sane-defaults_v1.0
+;; (add-to-list 'package-archives '("melpa-stable" . "https://stable.melpa.org/packages/") t)  ; safer to get stable version first https://github.com/magnars/.emacs.d/pull/7
+(add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)  ; stable Melpa doesn't have some packages -> need non-stable Melpa repository, url copied from http://melpa.org/#/getting-started
+(add-to-list 'package-archives '("marmalade" . "https://marmalade-repo.org/packages/") t)
+(add-to-list 'package-archives '("org" . "http://orgmode.org/elpa/") t)  ; for installing org-plus-contrib https://emacs.stackexchange.com/questions/17710
+;; http://elpa.gnu.org/packages/ is on the list by default after version 24
+(setq load-prefer-newer t)  ; load newer elisp
+(package-initialize)
+(unless (package-installed-p 'use-package)  ; install use-package if it isn't installed yet.
+  (package-refresh-contents)
+  (package-install 'use-package))
+(eval-when-compile (require 'use-package))  ; load use-package
+(setq use-package-always-ensure t)  ; install all packages automatically; for non-package, override it to nil
+;; (setq use-package-always-defer t)  ; cause too many dependence bugs
+(require 'cl)  ; for using cl-letf, and remove-if http://ergoemacs.org/emacs/elisp_filter_list.html
+(require 'subr-x)  ; for string-trim
+
+;; https://github.com/jwiegley/use-package/blob/master/bind-key.el TODO clean up this file by better bind-key syntax
+(use-package bind-key  ; mouse, scroll, and basic key bindings
+  :init
+  (global-unset-key (kbd "M-SPC"))  ; change it to main prefix key, similar to idea of spacemacs, original M-SPC runs the command just-one-space, ":bind ("M-SPC" . nil)" doesn't work
+  (global-set-key (kbd "M-SPC C-x") ctl-x-map)  ; cannot use (bind-key "M-SPC C-x" #'ctl-x-map) which return "Wrong type argument: commandp, ctl-x-map". ref: http://ergoemacs.org/emacs/emacs_dvorak_C-x.html
+  ;; rule: C-c = mode-dependent prefix
+  ;; C-c C-c is a common action (e.g., to send "C-c" in shell), better to have a new easy shortcut, e.g., M-c M-c  http://emacs.stackexchange.com/questions/14322
+  (define-key key-translation-map (kbd "M-c") (kbd "C-c"))
+  (define-key key-translation-map (kbd "C-c") (kbd "M-c"))
+  (define-key key-translation-map (kbd "C-S-c") (kbd "M-C"))
+  (define-key key-translation-map (kbd "M-C") (kbd "C-S-c"))          ; for org-mode
+  ;; unify to tab
+  (define-key key-translation-map (kbd "C-i") (kbd "<tab>"))          ; in TTY, tab key generates C-i instead of <tab>
+  (define-key key-translation-map (kbd "<S-tab>") (kbd "<backtab>"))
+  ;; unify to RET
+  (define-key key-translation-map (kbd "<return>") (kbd "RET"))       ; RET is more common than <return>
+  (define-key key-translation-map (kbd "M-<kp-enter>") (kbd "M-RET")) ; for numpad enter
+  (define-key key-translation-map (kbd "M-<enter>")    (kbd "M-RET")) ; for numpad enter
+  ;; unify to <escape>
+  (define-key key-translation-map (kbd "M-ESC") (kbd "<escape>"))     ; so that i can keep pressing meta key
+  (define-key key-translation-map (kbd "M-q") (kbd "<escape>"))       ; M-q is easier
+  ;; unify to DEL, default binding of backspace key
+  (define-key key-translation-map (kbd "M-h") (kbd "DEL"))
+  ;; unify arrow keys to M-keys, which support shift selection
+  (define-key key-translation-map (kbd "<right>") (kbd "M-f"))
+  (define-key key-translation-map (kbd "<left>") (kbd "M-b"))
+
+  (defun my-prefix-cancel () (interactive) (message "Prefix canceled."))  ; single ESC to cancel prefix key, cannot use keyboard-quit which will quit mc mode too.
+  (defun my-save-all-buffers () (interactive) (save-some-buffers t))
+  (setq kmacro-ring-max 30)  ; default is 8
+  ;; kmacro-edit-lossage doesn’t work out of the box. It gives “Key sequence C-h l is not defined”.  This fixes the problem https://github.com/br4ndur/dot-emacs/blob/master/branduren.org
+  (defun kmacro-edit-lossage-fixed ()
+    "Edit most recent 300 keystrokes as a keyboard macro."
+    (interactive)
+    (kmacro-push-ring)
+    (edit-kbd-macro 'view-lossage))
+  (defun my-recenter-no-redraw ()
+    "Like `recenter', but no redrawing."  ; avoid flashing in terminal http://stackoverflow.com/a/36896945/550243
+    (let ((recenter-redisplay nil)) (recenter nil))  ; recenter without arg -> go to middle of the screen
+    )
+  (defun my-escape ()
+    (interactive)
+    (if defining-kbd-macro  ; for C-g while recording a macro, otherwise emacs macro stopped at the escape https://www.reddit.com/r/emacs/comments/3zxuas
+        (mc/keyboard-quit)
+      (if (eq last-command 'mwheel-scroll)
+          (progn
+            (exchange-point-and-mark t)  ; go back to pre-scroll position
+            (my-recenter-no-redraw)
+            (beacon-blink))
+        (if (eq last-command 'keyboard-quit)
+            ;; double esc = keyboard-escape-quit + widen = keyboard-quit + delete-other-windows + ...
+            (progn
+              (widen)
+              (when (and (boundp 'vdiff--session) (not (null vdiff--session))) (vdiff-quit))
+              (keyboard-escape-quit)  ; = original "ESC ESC ESC"
+              (call-interactively 'lazy-highlight-cleanup)  ; for isearch
+              (my-recenter-no-redraw)
+              (beacon-blink))
+          ;; single esc = C-g = keyboard-quit, same as all other apps like closing a dialog box in Chrome, solving a problem mentioned in https://www.reddit.com/r/emacs/comments/4a0421
+          ;; don't use C-g, which is not a common shortcut (don't bind it to search next, as logical search prev = C-S-g is n/a in tty)
+          ;; Use unread-command-events instead of calling keyboard-quit directly, in case C-g is rebound, e.g., in company-mode / minibuffer-local-map http://superuser.com/a/945245/59765
+          (setq unread-command-events (listify-key-sequence "\C-g"))
+          ))))
+
+  ;; double-click on the quotation mark -> select all text in double quotes
+  ;; double-click on the '_' -> select the whole variable
+  ;; scroll down and keep cursor is not possible?
+  (setq mouse-wheel-scroll-amount '(5 ((shift) . 5) ((control) . nil)))  ; http://stackoverflow.com/a/445881 https://www.emacswiki.org/emacs/SmoothScrolling
+  (setq mouse-wheel-progressive-speed nil)  ; don't accelerate scrolling http://stackoverflow.com/a/445881 https://www.emacswiki.org/emacs/SmoothScrolling
+  (setq mouse-drag-copy-region nil)  ; highlight does not alter kill ring
+  (setq mouse-yank-at-point t)  ; when middle-clicking the mouse to yank from the clipboard, insert the text where point is, not where the mouse cursor is
+  (defadvice mouse-set-point (around glue-underscore activate)
+    (with-syntax-table (copy-syntax-table (syntax-table))
+      ;; modify syntax temporarily; global change -> syntax-subword doesn't work.
+      (modify-syntax-entry ?_ "w")
+      ad-do-it))
+  (defun my-mouse-start-rectangle (start-event)  ; http://emacs.stackexchange.com/a/7261
+    (interactive "e")
+    (deactivate-mark)
+    (mouse-set-point start-event)
+    (rectangle-mark-mode +1)
+    (let ((drag-event))
+      (track-mouse
+        (while (progn
+                 (setq drag-event (read-event))
+                 (mouse-movement-p drag-event))
+          (mouse-set-point drag-event)))))
+  (bind-key "M-<down-mouse-1>" #'my-mouse-start-rectangle)  ; = http://codemirror.net
+  (bind-key "C-S-<down-mouse-1>" #'my-mouse-start-rectangle)  ; S/C/M-mouse-1 are N/A in Ubuntu
+  ;; rectangle-mark-mode (C-x SPC) is better than cua mode, as i cannot do C-c with cua-set-rectangle-mark
+
+  ;; from https://writequit.org/eos/eos-appearance.html#orgheadline12
+  (setq scroll-conservatively 101  ; scroll only one line when move past the bottom of the screen. faq 5.45 http://www.gnu.org/s/emacs/emacs-faq.html#Modifying-pull_002ddown-menus
+        scroll-preserve-screen-position 'always  ; so that i don't need to find the cursor after page up/down, not 'always which will keep the cursor position even for minor wheel scroll
+        scroll-error-top-bottom t  ; moves point to the farthest possible position, same as modern editor https://www.gnu.org/software/emacs/manual/html_node/emacs/Scrolling.html
+        auto-window-vscroll nil
+        scroll-margin 3   ; vertical margin
+        hscroll-margin 5  ; horizontal margin
+        hscroll-step 1)
+  (advice-add 'mwheel-scroll :before
+              (lambda (arg)
+                (when (not (eq last-command 'mwheel-scroll))
+                  (set-marker (mark-marker) (point))
+                  (term-to-term-line-mode))))  ; for scrolling in term mode
+
+  :bind
+  ("M-SPC <escape>" . my-prefix-cancel)
+  ("C-c <escape>" . my-prefix-cancel)
+  ("<f1> <escape>" . my-prefix-cancel)
+  ("M-SPC C-q" . quoted-insert)     ; original kbd of quoted-insert = C-q
+  ("M-SPC M-e" . eval-last-sexp)    ; original kbd of eval-last-sexp = C-x C-e
+  ("M-SPC e"   . eval-expression)   ; original kbd of eval-expression = M-:
+  ("<f11>" . kmacro-start-macro-or-insert-counter)  ; orignally binded to <f3>
+  ("<f12>" . kmacro-end-or-call-macro)              ; orignally binded to <f4>
+  ("M-SPC <f11>" . kmacro-edit-lossage)
+  ;; other-window is a common function, but original binding (C-x o) is not convenient.
+  ;; C-` is N/A in TTY (= C-@ = C-SPC), M-` is used by Ubuntu to flip through windows in the switcher.
+  ("M-Q" . other-window)  ; close to tab
+  ;; Bind C-+ and C-- to increase and decrease text size, respectively.
+  ;; original keys: C-x C-+, C-x C--, and C-x C-0.
+  ;; from https://github.com/hrs/sensible-defaults.el/blob/master/sensible-defaults.el
+  ("C-0" . text-scale-adjust)  ; = (lambda () (interactive) (text-scale-set 0)), -> use M-num (or C-u num) instead of C-num for num arg
+  ("C-+" . text-scale-increase)
+  ("C-=" . text-scale-increase)
+  ("C-_" . text-scale-decrease)
+  ("C--" . text-scale-decrease)
+  ;; remap useful file commands http://ergoemacs.org/emacs/emacs_kb_shortcuts_pain.html
+  ("C-s" . my-save-all-buffers)
+  ("C-M-s" . write-file)  ; = save-as
+  ("C-q" . save-buffers-kill-terminal)
+  ("C-w" . kill-this-buffer)
+  ;; ("M-v" . indent-for-tab-command)
+  ("M-RET" . newline-and-indent)
+  ("<escape>" . my-escape)
+  (:map query-replace-map  ; query-replace-map is keymap-parent of map-y-or-n-p (used by save-buffers-kill-terminal) http://superuser.com/questions/795763/how-to-make-emacs-quit-the-minibuffer-with-one-press-of-esc
+        ("<escape>" . keyboard-quit)  ; originally bind to exit-prefix
+        ))
+
+;;; graphical mode vs. terminal/TTY mode
+;; TTY: to paste text from OS clipboard: use a different shortcut (C-S-v), not convenient
+;; TTY: to copy text from emacs to OS clipboard: use C-S-c https://stackoverflow.com/questions/27764059
+;;   i.e., cannot copy more than one page of text
+;; Linux Console Keys https://www.emacswiki.org/emacs/LinuxConsoleKeys
+;; emacspeak/tvr/console-keymaps https://github.com/tvraman/emacspeak/tree/master/tvr/console-keymaps
+(if (window-system)
+    (progn
+      ;; https://emacs-china.org/t/topic/440/27 http://baohaojun.github.io/perfect-emacs-chinese-font.html
+      ;; 如果配置好了，下面20个汉字与40个英文字母应该等长. here are 20 hanzi and 40 english chars, see if they are the same width:
+      ;; aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|
+      ;; 你你你你你你你你你你你你你你你你你你你你|
+      ;; ,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|
+      ;; 。。。。。。。。。。。。。。。。。。。。|
+      ;; 1111111111111111111111111111111111111111|
+      ;; 東東東東東東東東東東東東東東東東東東東東|
+      ;; ここここここここここここここここここここ|
+      ;; ｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺ|
+      ;; 까까까까까까까까까까까까까까까까까까까까|
+      ;; ✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔|
+      (setq fonts
+            ;; OSX en: Monaco and Monospace have larger size for '✔' (not good), DejaVu Sans Mono don't have size 10
+            ;; OSX cn: 用默认黑体 STHeiti http://cnborn.net/blog/2014/10/emacs-chinese-font-on-osx/ http://stackoverflow.com/a/19547480/550243 otherwise, cannot properly display bold chinese char on mac
+            (cond ((eq system-type 'darwin)     '("Menlo"     "STHeiti"))
+                  ((eq system-type 'gnu/linux)  '("Monospace" "WenQuanYi Zen Hei Mono"))  ; "Menlo" is N/A
+                  ((eq system-type 'windows-nt) '("Consolas"  "Microsoft Yahei"))))
+      (set-face-attribute 'default nil :font (format "%s:pixelsize=%d" (car fonts) 10))  ; setting English Font
+      (dolist (charset '(kana han symbol cjk-misc bopomofo))  ; Chinese Font: 根据字符编码去找合适的字体 http://zhuoqiang.me/torture-emacs.html
+        (set-fontset-font (frame-parameter nil 'font) charset
+                          (font-spec :family (car (cdr fonts)))))
+      ;; Fix chinese font width and rescale for org-table
+      (setq face-font-rescale-alist '(("STHeiti". 1.2) ("WenQuanYi Zen Hei Mono" . 1.2) ("Microsoft Yahei" . 1.2)))
+      ;; src https://github.com/fniessen/emacs-leuven-theme
+      ;; pros: prettier org-mode source code blocks https://www.reddit.com/r/emacs/comments/415imd/prettier_orgmode_source_code_blocks/
+      (use-package leuven-theme
+        :config
+        (load-theme 'leuven t)
+        (defface right-triangle-face '((t (:foreground "red"))) "Face for `right-triangle-face`.")  ; https://emacs.stackexchange.com/questions/13134/emphasise-the-current-error-in-the-compilation-window
+        (set-fringe-bitmap-face 'right-triangle 'right-triangle-face)
+        (with-eval-after-load 'org
+          ;; remove org-*-line background, underline and overline, which are too disturbing.  or use (face-attribute 'default :background) instead of nil
+          (set-face-attribute 'org-block-begin-line nil :underline nil :background nil :foreground "#00BB00")
+          (set-face-attribute 'org-block-end-line   nil :overline  nil :background nil :foreground "#00BB00")
+          (set-face-attribute 'org-block nil :background "#FFFFF0")  ; lighter than original color: FFFFE0
+          (set-face-attribute 'org-meta-line nil :background nil))
+        ;; (use-package mic-paren)
+        ;; (paren-activate)
+        ;; (setq paren-match-face "gold")
+        ))
+
   (menu-bar-mode -1)
   ;; (xterm-mouse-mode +1)  ; make mouse clicks work in xterm.
   (define-key input-decode-map "\e[1;2A" [S-up])  ; http://emacs.stackexchange.com/questions/977 http://stackoverflow.com/questions/10871745
@@ -159,202 +342,32 @@
   (mapc #'my-tty-init-esc (frame-list))
   )
 
+;;; UTF, Chinese input
+;; UTF-8 as default encoding, needed, e.g., to copy chinese char from broswer on Linux.
+;; Emacs相关中文问题以及解决方案 https://github.com/hick/emacs-chinese
+;; Emacs 中文化指南 http://man.chinaunix.net/newsoft/Emac/book.html
+;; emacs's builtin Chinese input is not practical compared to many other dedicated Chinese input systems http://ergoemacs.org/emacs/emacs_chinese_input.html
+;;   So, this is mostly useful for those who are studying Chinese, learning pinyin, or list characters. For real Chinese language input, you'll need features such as phrase suggestions, fuzzy input features, and many others to speed up the input.  ;ddd
+;; chinese-b5-tsangchi "倉B" "中文輸入【倉頡】BIG5"
+;; chinese-cns-tsangchi "倉C" "中文輸入【倉頡】CNS"
+;; Cangjie 5 https://github.com/mm--/dot-emacs
+;; CNS = Chinese National Standard = 中文標準交換碼 https://zh.wikipedia.org/wiki/%E4%B8%AD%E6%96%87%E6%A8%99%E6%BA%96%E4%BA%A4%E6%8F%9B%E7%A2%BC
+;; newer than Big5 -> better?
+;; CNS vs Big-5 (Chinese) http://shann.idv.tw/Chinese/big5-cns.html
+;; Word Wrap 中文 / 中英文混排时候的自动折行 https://emacs-china.org/t/topic/2616 not yet support
+;; alternate two input methods in Emacs https://stackoverflow.com/questions/12032231/is-it-possible-to-alternate-two-input-methods-in-emacs
+;; switch input sources in the minibuffer during Isearch https://emacs.stackexchange.com/questions/43701/cant-switch-input-sources-in-the-minibuffer-during-isearch
+(set-default-coding-systems 'utf-8)
+(set-buffer-file-coding-system 'utf-8)
+(prefer-coding-system 'utf-8)
+(set-terminal-coding-system 'utf-8)
+(set-keyboard-coding-system 'utf-8)
+(set-language-environment 'utf-8)
+(set-selection-coding-system 'utf-8)
+(setq locale-coding-system 'utf-8)
+(setq-default default-input-method "chinese-cns-tsangchi")
+(bind-key "M-SPC SPC" #'toggle-input-method)
 
-;;; use-package
-;; user manual https://github.com/jwiegley/use-package/blob/master/use-package.org
-(require 'package)  ; https://www.emacswiki.org/emacs/ELPA https://github.com/durantschoon/.emacs.d/tree/boilerplate-sane-defaults_v1.0
-;; (add-to-list 'package-archives '("melpa-stable" . "https://stable.melpa.org/packages/") t)  ; safer to get stable version first https://github.com/magnars/.emacs.d/pull/7
-(add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)  ; stable Melpa doesn't have some packages -> need non-stable Melpa repository, url copied from http://melpa.org/#/getting-started
-(add-to-list 'package-archives '("marmalade" . "https://marmalade-repo.org/packages/") t)
-(add-to-list 'package-archives '("org" . "http://orgmode.org/elpa/") t)  ; for installing org-plus-contrib https://emacs.stackexchange.com/questions/17710
-;; http://elpa.gnu.org/packages/ is on the list by default after version 24
-(setq load-prefer-newer t)  ; load newer elisp
-(package-initialize)
-(unless (package-installed-p 'use-package)  ; install use-package if it isn't installed yet.
-  (package-refresh-contents)
-  (package-install 'use-package))
-(eval-when-compile (require 'use-package))  ; load use-package
-(setq use-package-always-ensure t)  ; install all packages automatically; for non-package, override it to nil
-;; (setq use-package-always-defer t)  ; cause too many dependence bugs
-
-(require 'cl)  ; for using cl-letf, and remove-if http://ergoemacs.org/emacs/elisp_filter_list.html
-(require 'subr-x)  ; for string-trim
-
-;; https://github.com/jwiegley/use-package/blob/master/bind-key.el TODO clean up this file by better bind-key syntax
-(use-package bind-key  ; mouse, scroll, and basic key bindings
-  :init
-  ;; unbind useless keybindings, ("M-SPC" . nil) doesn't work
-  (global-unset-key (kbd "M-SPC"))  ; change it to main prefix key, similar to idea of spacemacs, original M-SPC runs the command just-one-space
-  (global-unset-key (kbd "C-<prior>"))  ; scroll-left is useless
-  (global-unset-key (kbd "C-<next>"))   ; scroll-right is useless
-  ;; rule: C-c = mode-dependent prefix
-  ;; C-c C-c is a common action (e.g., to send "C-c" in shell), better to have a new easy shortcut, e.g., M-c M-c  http://emacs.stackexchange.com/questions/14322
-  (define-key key-translation-map (kbd "M-c") (kbd "C-c"))
-  (define-key key-translation-map (kbd "C-c") (kbd "M-c"))
-  (define-key key-translation-map (kbd "C-S-c") (kbd "M-C"))
-  (define-key key-translation-map (kbd "M-C") (kbd "C-S-c"))        ; for org-mode
-  (define-key key-translation-map (kbd "C-i") (kbd "<tab>"))          ; in TTY, tab key generates C-i instead of <tab>
-  (define-key key-translation-map (kbd "<return>") (kbd "RET"))       ; RET is more common than <return>
-  (define-key key-translation-map (kbd "<S-tab>") (kbd "<backtab>"))  ; unify key strings
-  (define-key key-translation-map (kbd "M-<kp-enter>") (kbd "M-RET")) ; for numpad enter
-  (define-key key-translation-map (kbd "M-<enter>")    (kbd "M-RET")) ; for numpad enter
-  (define-key key-translation-map (kbd "M-ESC") (kbd "<escape>"))     ; so that i can keep pressing meta key
-  (define-key key-translation-map (kbd "M-q") (kbd "<escape>"))       ; M-q is easier
-  (global-set-key (kbd "M-SPC C-x") ctl-x-map)  ; cannot use (bind-key "M-SPC C-x" #'ctl-x-map) which return "Wrong type argument: commandp, ctl-x-map". ref: http://ergoemacs.org/emacs/emacs_dvorak_C-x.html
-  (defun my-prefix-cancel () (interactive) (message "Prefix canceled."))  ; single ESC to cancel prefix key, cannot use keyboard-quit which will quit mc mode too.
-  (defun my-save-all-buffers () (interactive) (save-some-buffers t))
-  (setq kmacro-ring-max 30)  ; default is 8
-  ;; kmacro-edit-lossage doesn’t work out of the box. It gives “Key sequence C-h l is not defined”.  This fixes the problem https://github.com/br4ndur/dot-emacs/blob/master/branduren.org
-  (defun kmacro-edit-lossage-fixed ()
-    "Edit most recent 300 keystrokes as a keyboard macro."
-    (interactive)
-    (kmacro-push-ring)
-    (edit-kbd-macro 'view-lossage))
-  (defun my-recenter-no-redraw ()
-    "Like `recenter', but no redrawing."  ; avoid flashing in terminal http://stackoverflow.com/a/36896945/550243
-    (let ((recenter-redisplay nil)) (recenter nil))  ; recenter without arg -> go to middle of the screen
-    )
-  (defun my-escape ()
-    (interactive)
-    (if (eq last-command 'mwheel-scroll)
-        (progn
-          (exchange-point-and-mark t)  ; go back to pre-scroll position
-          (my-recenter-no-redraw)
-          (beacon-blink))
-      (if (eq last-command 'keyboard-quit)
-          ;; double esc = keyboard-escape-quit + widen = keyboard-quit + delete-other-windows + ...
-          (progn
-            (widen)
-            (when (and (boundp 'vdiff--session) (not (null vdiff--session))) (vdiff-quit))
-            (keyboard-escape-quit)  ; = original "ESC ESC ESC"
-            (call-interactively 'lazy-highlight-cleanup)  ; for isearch
-            (my-recenter-no-redraw)
-            (beacon-blink))
-        ;; single esc = C-g = keyboard-quit, same as all other apps like closing a dialog box in Chrome (solving a problem mentioned in https://www.reddit.com/r/emacs/comments/4a0421 )
-        ;; Use unread-command-events instead of calling keyboard-quit directly, in case C-g is rebound, e.g., in company-mode / minibuffer-local-map http://superuser.com/a/945245/59765
-        (setq unread-command-events (listify-key-sequence "\C-g"))
-        )))
-
-  ;; double-click on the quotation mark -> select all text in double quotes
-  ;; double-click on the '_' -> select the whole variable
-  ;; scroll down and keep cursor is not possible?
-  (setq mouse-wheel-scroll-amount '(5 ((shift) . 5) ((control) . nil)))  ; http://stackoverflow.com/a/445881 https://www.emacswiki.org/emacs/SmoothScrolling
-  (setq mouse-wheel-progressive-speed nil)  ; don't accelerate scrolling http://stackoverflow.com/a/445881 https://www.emacswiki.org/emacs/SmoothScrolling
-  (setq mouse-drag-copy-region nil)  ; highlight does not alter kill ring
-  (setq mouse-yank-at-point t)  ; when middle-clicking the mouse to yank from the clipboard, insert the text where point is, not where the mouse cursor is
-  (defadvice mouse-set-point (around glue-underscore activate)
-    (with-syntax-table (copy-syntax-table (syntax-table))
-      ;; modify syntax temporarily; global change -> syntax-subword doesn't work.
-      (modify-syntax-entry ?_ "w")
-      ad-do-it))
-  (defun my-mouse-start-rectangle (start-event)  ; http://emacs.stackexchange.com/a/7261
-    (interactive "e")
-    (deactivate-mark)
-    (mouse-set-point start-event)
-    (rectangle-mark-mode +1)
-    (let ((drag-event))
-      (track-mouse
-        (while (progn
-                 (setq drag-event (read-event))
-                 (mouse-movement-p drag-event))
-          (mouse-set-point drag-event)))))
-  (bind-key "M-<down-mouse-1>" #'my-mouse-start-rectangle)  ; = http://codemirror.net
-  (bind-key "C-S-<down-mouse-1>" #'my-mouse-start-rectangle)  ; S/C/M-mouse-1 are N/A in Ubuntu
-  ;; rectangle-mark-mode (C-x SPC) is better than cua mode, as i cannot do C-c with cua-set-rectangle-mark
-
-  ;; from https://writequit.org/eos/eos-appearance.html#orgheadline12
-  (setq scroll-conservatively 101  ; scroll only one line when move past the bottom of the screen. faq 5.45 http://www.gnu.org/s/emacs/emacs-faq.html#Modifying-pull_002ddown-menus
-        scroll-preserve-screen-position 'always  ; so that i don't need to find the cursor after page up/down, not 'always which will keep the cursor position even for minor wheel scroll
-        scroll-error-top-bottom t  ; moves point to the farthest possible position, same as modern editor https://www.gnu.org/software/emacs/manual/html_node/emacs/Scrolling.html
-        auto-window-vscroll nil
-        scroll-margin 3   ; vertical margin
-        hscroll-margin 5  ; horizontal margin
-        hscroll-step 1)
-  (advice-add 'mwheel-scroll :before (lambda (arg) (if (not (eq last-command 'mwheel-scroll)) (set-marker (mark-marker) (point)))))
-
-  :bind
-  ("M-SPC <escape>" . my-prefix-cancel)
-  ("C-c <escape>" . my-prefix-cancel)
-  ("<f1> <escape>" . my-prefix-cancel)
-  ("M-SPC C-q" . quoted-insert)     ; original kbd of quoted-insert = C-q
-  ("M-SPC M-e" . eval-last-sexp)    ; original kbd of eval-last-sexp = C-x C-e
-  ("M-SPC e"   . eval-expression)   ; original kbd of eval-expression = M-:
-  ("<f11>" . kmacro-start-macro-or-insert-counter)  ; orignally binded to <f3>
-  ("<f12>" . kmacro-end-or-call-macro)              ; orignally binded to <f4>
-  ("M-SPC <f11>" . kmacro-edit-lossage)
-  ;; other-window is a common function, but original binding (C-x o) is not convenient.
-  ;; C-` is N/A in TTY (= C-@ = C-SPC), M-` is used by Ubuntu to flip through windows in the switcher. M-v is not easy enough.
-  ("M-z" . other-window)  ; original M-z runs the command zap-to-char
-  ;; Bind C-+ and C-- to increase and decrease text size, respectively.
-  ;; original keys: C-x C-+, C-x C--, and C-x C-0.
-  ;; from https://github.com/hrs/sensible-defaults.el/blob/master/sensible-defaults.el
-  ("C-0" . text-scale-adjust)  ; = (lambda () (interactive) (text-scale-set 0)), -> use M-num (or C-u num) instead of C-num for num arg
-  ("C-+" . text-scale-increase)
-  ("C-=" . text-scale-increase)
-  ("C-_" . text-scale-decrease)
-  ("C--" . text-scale-decrease)
-  ;; remap useful file commands http://ergoemacs.org/emacs/emacs_kb_shortcuts_pain.html
-  ("C-s" . my-save-all-buffers)
-  ("C-M-s" . write-file)  ; = save-as
-  ("C-q" . save-buffers-kill-terminal)
-  ("C-w" . kill-this-buffer)
-  ("M-v" . indent-for-tab-command)
-  ("M-RET" . newline-and-indent)
-  ("<backspace>" . my-escape)  ; disable <backspace>
-  ("<escape>" . my-escape)
-  (:map query-replace-map  ; query-replace-map is keymap-parent of map-y-or-n-p (used by save-buffers-kill-terminal) http://superuser.com/questions/795763/how-to-make-emacs-quit-the-minibuffer-with-one-press-of-esc
-        ("<escape>" . keyboard-quit)  ; originally bind to exit-prefix
-        )
-  )
-
-;; https://tumashu.github.io/pyim/documents/a-chinese-input-method-which-support-quanpin,-shuangpin,-wubi-and-cangjie./
-;; https://github.com/tumashu/pyim
-(use-package pyim  ; and utf-8, font, Chinese input method
-  :init
-  ;; (use-package cnfonts :config (cnfonts-enable) (cnfonts-edit-profile))  ; for finding fonts https://github.com/tumashu/cnfonts
-  (when (window-system)
-    ;; https://emacs-china.org/t/topic/440/27 http://baohaojun.github.io/perfect-emacs-chinese-font.html
-    ;; 如果配置好了，下面20个汉字与40个英文字母应该等长. here are 20 hanzi and 40 english chars, see if they are the same width:
-    ;; aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|
-    ;; 你你你你你你你你你你你你你你你你你你你你|
-    ;; ,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|
-    ;; 。。。。。。。。。。。。。。。。。。。。|
-    ;; 1111111111111111111111111111111111111111|
-    ;; 東東東東東東東東東東東東東東東東東東東東|
-    ;; ここここここここここここここここここここ|
-    ;; ｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺｺ|
-    ;; 까까까까까까까까까까까까까까까까까까까까|
-    ;; ✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔✔|
-    (setq fonts
-          ;; OSX en: Monaco and Monospace have larger size for '✔' (not good), DejaVu Sans Mono don't have size 10
-          ;; OSX cn: 用默认黑体 STHeiti http://cnborn.net/blog/2014/10/emacs-chinese-font-on-osx/ http://stackoverflow.com/a/19547480/550243 otherwise, cannot properly display bold chinese char on mac
-          (cond ((eq system-type 'darwin)     '("Menlo"     "STHeiti"))
-                ((eq system-type 'gnu/linux)  '("Monospace" "WenQuanYi Zen Hei Mono"))  ; "Menlo" is N/A
-                ((eq system-type 'windows-nt) '("Consolas"  "Microsoft Yahei"))))
-    (set-face-attribute 'default nil :font (format "%s:pixelsize=%d" (car fonts) 10))  ; setting English Font
-    (dolist (charset '(kana han symbol cjk-misc bopomofo))  ; Chinese Font: 根据字符编码去找合适的字体 http://zhuoqiang.me/torture-emacs.html
-      (set-fontset-font (frame-parameter nil 'font) charset
-                        (font-spec :family (car (cdr fonts)))))
-    ;; Fix chinese font width and rescale for org-table
-    (setq face-font-rescale-alist '(("STHeiti". 1.2) ("WenQuanYi Zen Hei Mono" . 1.2) ("Microsoft Yahei" . 1.2)))
-    )
-  ;; UTF-8 as default encoding
-  ;; Do not add a bunch of other variables such as set-terminal-coding-system, unless you know emacs's encoding system very well. http://ergoemacs.org/emacs/emacs_make_modern.html
-  (set-language-environment "UTF-8")
-  (set-default-coding-systems 'utf-8)
-  (set-buffer-file-coding-system 'utf-8)
-  :config
-  (use-package pyim-cangjie5dict :config (pyim-cangjie5-enable))
-  (setq default-input-method "pyim")
-  (setq pyim-default-scheme 'cangjie)
-  ;; (setq-default pyim-english-input-switch-functions '(pyim-probe-dynamic-english))  ; 无痛中英文切换：光标前是汉字字符时，才能输入中文
-  (setq-default pyim-punctuation-half-width-functions '(pyim-probe-punctuation-line-beginning pyim-probe-punctuation-after-punctuation))
-  (setq pyim-page-tooltip 'popup)  ; 使用 pupup-el 来绘制选词框
-  (setq pyim-page-length 10)  ; 选词框显示候选词個數
-  :bind
-  ;; ("M-/" . pyim-convert-code-at-point) ;与 pyim-probe-dynamic-english 配合，强制将光标前的拼音字符串转换为中文
-  ("M-SPC SPC" . toggle-input-method)
-  )
 
 ;; https://github.com/lewang/backup-walker http://emacs.stackexchange.com/questions/29142/recover-backup-files
 ;; The typical workflow is:
@@ -367,8 +380,7 @@
 ;;      <q> and kill all open backups.
 ;;   4) the end.
 (use-package backup-walker)
-(defvar user-temporary-file-directory "~/.emacs.d/backups/")  ; http://www.martinaulbach.net/linux/software/21-my-emacs-configuration-file
-(setq backup-directory-alist `(("." . ,user-temporary-file-directory)))  ; http://pages.sachachua.com/.emacs.d/Sacha.html
+(setq backup-directory-alist '(("." . "~/.emacs.d/backups")))  ; http://pages.sachachua.com/.emacs.d/Sacha.html
 (setq tramp-backup-directory-alist backup-directory-alist)
 ;; Remember password when connected to remote sites via Tramp http://stackoverflow.com/questions/840279/passwords-in-emacs-tramp-mode-editing
 ;; Emacs "tramp" service (ssh connection) constantly asks for the log in password without this
@@ -424,36 +436,23 @@
   :config
   (back-button-mode 1)
   (advice-add 'back-button-visible-mark-show :after (lambda (arg) (hl-line-highlight) (deactivate-mark) (my-recenter-no-redraw) (beacon-blink)))  ; cannot add advice to 'back-button-local which has some delay
-  (defun shift-back-button-local-backward-recent ()
-    (interactive)
-    (exchange-point-and-mark)
-    (convert-to-shift-selection)
-    (my-recenter-no-redraw))
   :bind
   ("C-h" . back-button-local-backward)
-  ("C-S-h" . shift-back-button-local-backward-recent)
   ("C-l" . back-button-local-forward)
   )
 
 (use-package expand-region  ; and selection / mark
   :init
-  (defun my-shift-select (other-end)  ; selection's highlight should override flycheck's http://stackoverflow.com/questions/38912681/programmatically-do-shift-selection
+  (defun my-shift-select (other-end)  ; http://stackoverflow.com/questions/38912681/programmatically-do-shift-selection
     (let ((pos (point)))
       (goto-char other-end)
       (setq-local transient-mark-mode (cons 'only (unless (eq transient-mark-mode 'lambda) transient-mark-mode)))
       (cl-letf (((symbol-function 'message) #'ignore)) (push-mark nil nil t))  ; suppress message http://stackoverflow.com/questions/41328667
       (goto-char pos)))
-  (defun convert-to-shift-selection ()
-    (when (use-region-p)
-      (let ((pos (point)))
-        (goto-char (mark))
-        (setq-local transient-mark-mode (cons 'only (unless (eq transient-mark-mode 'lambda) transient-mark-mode)))
-        (cl-letf (((symbol-function 'message) #'ignore)) (push-mark nil nil t))  ; suppress message http://stackoverflow.com/questions/41328667
-        (goto-char pos))))
   ;; to fix: Region set by expand-region doesn't get unset by motion https://github.com/magnars/expand-region.el/issues/185
   (defadvice er/expand-region (around fill-out-region activate)
     (if (or (eq last-command 'er/expand-region) (and (not (eq (get-text-property (point) 'face) 'org-date)) (not (eq (get-text-property (1- (point)) 'face) 'org-date))))
-        (progn ad-do-it (convert-to-shift-selection))
+        (progn ad-do-it (my-shift-select (mark)))
       ;; https://emacs.stackexchange.com/questions/38048/function-to-highlight-timestamp-generated-from-org-time-stamp
       (let ((beg (previous-property-change (point) nil (line-beginning-position))))
         (when (= beg (line-beginning-position)) (setq beg (point)))
@@ -468,38 +467,131 @@
   ("M-R" . er/contract-region)
   )
 
-(use-package dired
+
+;; REF: Dired Customization http://ergoemacs.org/emacs/emacs_dired_tips.html
+(use-package dired  ; and file functions
   :ensure nil  ; for non-package
   :config
   ;; https://gist.github.com/tototoshi/648425
-  (defun dired-open-file ()
-    "In dired, open the file named on this line."
+  (setq dired-auto-revert-buffer t      ; Revert on re-visiting
+        dired-listing-switches "-alhF"  ; `-l' is mandatory, `-a' shows all files, `-h' uses human-readable sizes, and `-F' appends file-type classifiers to file names (for better highlighting)
+        dired-ls-F-marks-symlinks t     ; -F marks links with @
+        dired-recursive-copies 'always  ; inhibit prompts for simple recursive operations
+        dired-dwim-target t             ; default target directory = other dired split window
+        dired-deletion-confirmer '(lambda (x) t))  ; https://superuser.com/questions/332590/how-to-prevent-delete-confirmation-in-emacs-dired
+  (put 'dired-find-alternate-file 'disabled nil)  ; https://www.emacswiki.org/emacs/DiredReuseDirectoryBuffer
+  (defun up-directory () (interactive) (find-alternate-file ".."))  ; replace dired-up-directory, which create a new buffer
+  (defun go-to-dir-or-open-file-in-external-app (&optional @fname)  ; adapted from http://ergoemacs.org/emacs/emacs_dired_open_file_in_ext_apps.html Version 2019-01-18
     (interactive)
-    (let* ((file (dired-get-filename)))
-      (message "Opening %s..." file)
-      (call-process "gnome-open" nil 0 nil file)
-      (message "Opening %s done" file)))
-  (setq dired-auto-revert-buffer t    ; Revert on re-visiting
-        ;; Better dired flags: `-l' is mandatory, `-a' shows all files, `-h'
-        ;; uses human-readable sizes, and `-F' appends file-type classifiers
-        ;; to file names (for better highlighting)
-        dired-listing-switches "-alhF"
-        dired-ls-F-marks-symlinks t   ; -F marks links with @
-        ;; Inhibit prompts for simple recursive operations
-        dired-recursive-copies 'always
-        ;; Auto-copy to other Dired split window
-        dired-dwim-target t)
-  (put 'dired-find-alternate-file 'disabled nil)
-  (add-hook 'dired-mode-hook 'auto-revert-mode)  ; auto refresh dired when file changes http://pragmaticemacs.com/emacs/automatically-revert-buffers/
+    (let* (($file-list
+            (if @fname
+                (progn (list @fname))
+              (if (string-equal major-mode "dired-mode")
+                  (dired-get-marked-files)
+                (list (buffer-file-name)))))
+           ($do-it-p (if (<= (length $file-list) 5) t (y-or-n-p "Open more than 5 files? "))))
+      (when $do-it-p
+        (if (and (= (length $file-list)) (file-directory-p (car $file-list)))
+            (dired-find-alternate-file)  ; enter directory w/o a new buffer
+          (cond
+           ((string-equal system-type "windows-nt")
+            (mapc
+             (lambda ($fpath)
+               (w32-shell-execute "open" (replace-regexp-in-string "/" "\\" $fpath t t))) $file-list))
+           ((string-equal system-type "darwin")
+            (mapc
+             (lambda ($fpath)
+               (let ((ext (file-name-extension $fpath)))
+                 (cond
+                  ((string= ext "pdf")
+                   ;; use Preview instead of Chrome to open pdf files. "open -a " is needed to avoid warnings.
+                   (shell-command (concat "open -a /Applications/Preview.app/Contents/MacOS/Preview " (shell-quote-argument $fpath))))
+                  ((string-match "\\(mp3\\|m4a\\)" ext)
+                   (shell-command (concat "open -a /Applications/VLC.app/Contents/MacOS/VLC " (shell-quote-argument $fpath))))
+                  (t
+                   (shell-command (concat "open " (shell-quote-argument $fpath)))))))
+             $file-list))
+           ((string-equal system-type "gnu/linux")
+            (mapc
+             (lambda ($fpath) (let ((process-connection-type nil))
+                                (start-process "" nil "xdg-open" $fpath))) $file-list)))))))
+  (defun my-dired-jump ()
+    (interactive)
+    (when (string-equal major-mode "dired-mode") (split-window-below))  ; create a new dired buffer for default target directory https://emacs.stackexchange.com/questions/5603/ http://ergoemacs.org/emacs/emacs_dired_tips.html
+    (dired-jump)  ; go to current buffer's directory and place cursor on the file name
+    )
+  (with-eval-after-load "wdired"  ; :bind (:map wdired-mode-map ...) doesn't work https://emacs.stackexchange.com/questions/29520
+    (setq wdired-mode-map (make-sparse-keymap))  ; original def https://github.com/emacs-mirror/emacs/blob/master/lisp/wdired.el
+    (define-key wdired-mode-map "\C-g" 'wdired-abort-changes)
+    (define-key wdired-mode-map (kbd "RET") 'wdired-finish-edit)  ; = shortcut of Google Drive rename finish, old kbd = C-c C-c
+    )
+  ;; https://raw.githubusercontent.com/akisute3/helm-dired-recent-dirs/master/helm-dired-recent-dirs.el
+  (use-package helm-dired-recent-dirs)
+
+  ;; http://ergoemacs.org/emacs/emacs_new_empty_buffer.html
+  ;; https://emacs.stackexchange.com/questions/35803/how-to-get-emacs-to-prompt-when-a-new-buffer-is-changed-on-save
+  ;; https://emacs.stackexchange.com/questions/2191/copy-contents-of-current-buffer-in-a-temp-buffer-and-operate-on-that
+  (defun my-new-buffer-with-selected-string ()
+    "Create a new empty buffer. New buffer will be named “untitled” or “untitled<2>”, “untitled<3>”, etc."
+    (interactive)
+    (let (($buf (generate-new-buffer "untitled"))
+          ($str (if (use-region-p) (buffer-substring-no-properties (region-beginning) (region-end)) "")))
+      (switch-to-buffer $buf)
+      (undo-tree-mode 1)  ; https://www.reddit.com/r/emacs/comments/4akvr3/how_to_enable_undotreemode_in_fundamentalmode/
+      (insert $str)
+      (setq buffer-offer-save t)
+      $buf))
+  (bind-key "C-n" #'my-new-buffer-with-selected-string)
+  (defun revert-buffer-no-confirm ()  ; https://emacs.stackexchange.com/questions/10348
+    "Revert buffer without confirmation."
+    (interactive) (revert-buffer t t))
+  (bind-key "C-r" #'revert-buffer-no-confirm)
+  (defun my-rm/delete-this-buffer-and-file ()  ; dangerous action -> no shortcut
+    "Removes file connected to current buffer and kills buffer."
+    (interactive)
+    (let ((filename (buffer-file-name))
+          (buffer (current-buffer))
+          (name (buffer-name)))
+      (if (not (and filename (file-exists-p filename)))
+          (error "Buffer '%s' is not visiting a file!" name)
+        (when (yes-or-no-p "Are you sure you want to remove this file? ")
+          (delete-file filename)
+          (kill-buffer buffer)
+          (message "File '%s' successfully removed" filename)))))
+  (defun my-rename-this-buffer-file ()  ; https://stackoverflow.com/a/37456354
+    (interactive)
+    (let* ((name (buffer-name))
+           (filename (buffer-file-name))
+           (basename (file-name-nondirectory filename)))
+      (if (not (and filename (file-exists-p filename)))
+          (error "Buffer '%s' is not visiting a file!" name)
+        (let ((new-name (read-file-name "New name: " (file-name-directory filename) basename nil basename)))
+          (if (get-buffer new-name)
+              (error "A buffer named '%s' already exists!" new-name)
+            (rename-file filename new-name 1)
+            (rename-buffer new-name)
+            (set-visited-file-name new-name)
+            (set-buffer-modified-p nil)
+            (message "File '%s' successfully renamed to '%s'"
+                     name (file-name-nondirectory new-name)))))))
+
   :bind
+  ("M-W" . my-dired-jump)
+  :bind
+  ;; (setq dired-mode-map (make-sparse-keymap))  returns "Wrong type argument: keymapp, nil" in Linux
+  ;; alt: use dired-mode-hook
   (:map dired-mode-map
-        ("e" . wdired-change-to-wdired-mode)
-        ("h" . dired-up-directory)
-        ("l" . dired-find-alternate-file)  ; visit w/o a new buffer, using emacs
+        ("a" . nil)
+        ("C-z" . helm-dired-recent-dirs-view)
+        ("n" . wdired-change-to-wdired-mode)  ; = shortcut of Google Drive rename
+        ("p" . up-directory)  ; similar to shortcut of Google Drive = g p, not "h" which means DEL on Mac
+        ("o" . go-to-dir-or-open-file-in-external-app)  ; = shortcut of Google Drive open, not "l" as "hjkl" not Mac style
+        ("RET" . go-to-dir-or-open-file-in-external-app)
         ("j" . dired-next-line)
         ("k" . dired-previous-line)
-        ("o" . dired-open-file)  ; using system app
-        ))
+        ("z" . dired-do-rename)  ; = shortcut of Google Drive move
+        ("SPC" . dired-view-file)))  ; = shortcut Mac Finder peep, 'q' to quit
+
 
 ;;; frame and window
 ;; resize Emacs (GUI) window to exactly half the screen https://emacs.stackexchange.com/questions/30420
@@ -536,7 +628,7 @@
 (bind-key "M-SPC M-SPC M-SPC"   #'toggle-frame-maximized)
 (bind-key "M-SPC M-SPC M-k"    #'my-frame-resize-half-up)
 (bind-key "M-SPC M-SPC M-j"  #'my-frame-resize-half-down)
-(bind-key "M-SPC M-SPC M-h"  #'my-frame-resize-half-left)
+(bind-key "M-SPC M-SPC DEL"  #'my-frame-resize-half-left)
 (bind-key "M-SPC M-SPC M-l" #'my-frame-resize-half-right)
 
 (setq winner-dont-bind-my-keys t)  ; don't use default binding (C-c <left>/<right>) coz C-c is used for mode-specific functions only.
@@ -575,20 +667,18 @@
                 (cl-letf (((symbol-function 'push-mark) (lambda ( &optional LOCATION NOMSG ACTIVATE) (set-marker (mark-marker) (point) (current-buffer)) (set-mark (mark t)))))
                   (apply orig-fun args))))
 
-  (bind-key "M-g" (lambda (arg)  ; original M-l runs the command downcase-word
+  (bind-key "M-g" (lambda (arg)
                     (interactive "^p")
                     (if (and was-active (not (use-region-p)))
                         (goto-char (region-end))
                       (syntax-subword-forward arg)
                       )))
-  ;; bind M-h to syntax-subword-backward instead of delete-backward-char, because if all hjkl are movement key then it's ok to mistype sometimes.
-  (bind-key "M-s" (lambda (arg)  ; original M-h runs the command mark-paragraph / org-mark-element; need * to override org-mode rebind.
+  (bind-key "M-s" (lambda (arg)
                     (interactive "^p")
                     (if (and was-active (not (use-region-p)))
                         (goto-char (region-beginning))
                       (syntax-subword-backward arg)
                       )))
-
   (defun term-to-term-line-mode()
     (when (and (boundp 'term-raw-map) (term-in-char-mode))  ; term-in-char-mode is a macro, cannot be used in boundp
       (term-line-mode)
@@ -613,7 +703,6 @@
                                (skip-chars-backward "\t "))  ; go to line-beginning-position, (move-beginning-of-line) doesn't work.
                       (goto-char (point-min))
                       )))
-
   (defun goto-closest-imenu-item (direction)
     "Jump to the closest imenu item on the current buffer.
      If direction is 1, jump to next imenu item.
@@ -647,35 +736,52 @@
   (bind-key "M-u"
             (lambda (arg)
               (interactive "^p")
-              (term-to-term-line-mode)
               (cond ((eq major-mode 'shell-mode) (comint-next-prompt arg))
                     ((eq major-mode 'org-mode) (org-next-visible-heading arg))
                     (t (goto-closest-imenu-item 1)))
               (my-recenter-no-redraw)))
-  (bind-key "M-i"
+  (bind-key "M-i"  ; not M-, which doesn't support selection
             (lambda (arg)
               (interactive "^p")
-              (term-to-term-line-mode)
               (cond ((eq major-mode 'shell-mode) (comint-previous-prompt arg))
                     ((eq major-mode 'org-mode) (org-previous-visible-heading arg))
                     (t (goto-closest-imenu-item -1)))
               (my-recenter-no-redraw)))
-
-  (defun my-goto-buffer-beg () (interactive "^") (term-to-term-line-mode) (beginning-of-buffer))
-  (defun my-goto-buffer-end () (interactive "^") (term-to-term-line-mode) (end-of-buffer))
-  (defun my-shift-select-all () (interactive) (mark-whole-buffer) (convert-to-shift-selection))
-
+  (defun my-goto-buffer-beg () (interactive "^") (beginning-of-buffer))
+  (defun my-goto-buffer-end () (interactive "^") (end-of-buffer))
+  (defun my-shift-select-all () (interactive) (mark-whole-buffer) (my-shift-select (mark)))
+  (defun my-forward-char (arg)
+    (interactive "^p")
+    (if (and was-active (not (use-region-p)))
+        (goto-char (region-end))
+      (forward-char arg)))
+  (defun my-backward-char (arg)
+    (interactive "^p")
+    (if (and was-active (not (use-region-p)))
+        (goto-char (region-beginning))
+      (backward-char arg)))
   ;; do not use viper-forward-Word which cannot eat multiple "\n"
   (defun my-next-space-seperated-word ()
     (interactive "^")
-    (term-to-term-line-mode)
-    (skip-chars-forward "^\n\t ") (skip-chars-forward "\n\t ")  ; == (search-forward-regexp "[^\t\n ][\t\n ]+" nil t)
-    )
+    (if (and was-active (not (use-region-p)))
+        (goto-char (region-end))
+      (skip-chars-forward "^\n\t ") (skip-chars-forward "\n\t ")))  ; == (search-forward-regexp "[^\t\n ][\t\n ]+" nil t)
   (defun my-prev-space-seperated-word ()
     (interactive "^")
-    (term-to-term-line-mode)
-    (skip-chars-backward "\n\t ") (skip-chars-backward "^\n\t ")
-    )
+    (if (and was-active (not (use-region-p)))
+        (goto-char (region-beginning))
+      (skip-chars-backward "\n\t ") (skip-chars-backward "^\n\t ")))
+  ;; useful for moving in urls, filepaths, parenthesis, etc
+  (defun my-next-punct ()
+    (interactive "^")
+    (if (and was-active (not (use-region-p)))
+        (goto-char (region-end))
+      (skip-chars-forward "0-9a-zA-Z\n\t _-") (skip-chars-forward "^0-9a-zA-Z\n\t _-")))
+  (defun my-prev-punct ()
+    (interactive "^")
+    (if (and was-active (not (use-region-p)))
+        (goto-char (region-beginning))
+      (skip-chars-backward "^0-9a-zA-Z\n\t _-") (skip-chars-backward "0-9a-zA-Z\n\t _-")))
   (bind-key "M-a" (lambda ()
                     "Move point to the first non-whitespace character on this line. If point was already at that position, move point to beginning of line."
                     (interactive "^")
@@ -687,21 +793,38 @@
                     (interactive "^")
                     (let ((oldpos (point))) (end-of-visual-line) (and (= oldpos (point)) (end-of-line)))))
 
+  ;; ref: https://wwwtech.de/articles/2013/may/emacs:-jump-to-matching-paren-beginning-of-block
+  ;; related: https://www.emacswiki.org/emacs/NavigatingParentheses
+  (defun my-matching-paren (with-shift)
+    "Go to the matching  if on (){}[]<>, similar to vi style of % "
+    (set-marker (mark-marker) (point))
+    (setq this-command-keys-shift-translated with-shift)
+    (handle-shift-selection)
+    ;; first, check for "outside of bracket" positions expected by forward-sexp, etc
+    (cond ((looking-at "[\[\(\{<]") (forward-sexp))
+          ((looking-back "[\]\)\}]" 1) (backward-sexp))
+          ;; now, try to succeed from inside of a bracket
+          ((looking-at "[\]\)\}>]") (forward-char) (backward-sexp))
+          ((looking-back "[\[\(\{<]" 1) (backward-char) (forward-sexp))
+          (t (skip-chars-forward "^[]{}()<>")))
+    (my-recenter-no-redraw))
+  (bind-key "M-." (lambda () (interactive) (my-matching-paren nil)))  ; original M-. runs the command xref-find-definitions
+  (bind-key "M->" (lambda () (interactive) (my-matching-paren t)))
+
   :bind
-  ("<C-backspace>" . my-delete-prev-subword)
-  ("<C-delete>" . my-delete-next-subword)
   ("M-H" . my-delete-prev-subword)  ; useful for deleting empty spaces
   ("M-D" . my-delete-next-subword)
   ("M-d" . delete-char)
-  ("M-h" . delete-backward-char)
+  ("M-f" . my-forward-char)
+  ("M-b" . my-backward-char)
   ("M-n" . next-line)
   ("M-p" . previous-line)
-  ("M-f" . forward-char)
-  ("M-b" . backward-char)
   ("C-M-j" . scroll-up-command)
   ("C-M-k" . scroll-down-command)
   ("M-o" . my-next-space-seperated-word)
   ("M-y" . my-prev-space-seperated-word)
+  ("M-v" . my-next-punct)
+  ("M-z" . my-prev-punct)
   ("C-<up>"   . my-goto-buffer-beg)  ; same as sublime and http://codemirror.net
   ("C-<down>" . my-goto-buffer-end)
   ("M-SPC M-k" . my-goto-buffer-beg)
@@ -714,7 +837,7 @@
   (which-key-mode)
   (setq which-key-sort-order 'which-key-description-order)
   :bind
-  ("C-?" . which-key-show-top-level)
+  ("M-?" . which-key-show-top-level)
   )
 
 (use-package keyfreq
@@ -765,10 +888,12 @@
 
 ;; https://github.com/bburns/clipmon
 ;; https://www.reddit.com/r/emacs/comments/2uu3wc/emacs_as_a_clipboard_manager_with_clipmon/
-(use-package clipmon  ; xcv, cua mode, cut copy paste join delete, line-wise edit
+(use-package clipmon  ; xcv, cua = common user access: C+xcv, cut copy paste join delete, line-wise edit
   :init
   (setq clipmon-timer-interval 1)  ; check system clipboard every 1 sec, default = 2
   (setq kill-ring-max 1000)  ; default = 60
+  ;; avoid modifying clipboard text (e.g., unicode, richtext) https://github.com/bburns/clipmon/issues/15
+  (defadvice clipmon--on-clipboard-change (around stop-clipboard-parsing activate) (let ((interprogram-cut-function nil)) ad-do-it))
   (clipmon-mode 1)
 
   (setq save-interprogram-paste-before-kill t)  ; If you have something on the system clipboard, and then kill something in Emacs, then by default whatever you had on the system clipboard is gone and there is no way to get it back. Setting the following option makes it so that when you kill something in Emacs, whatever was previously on the system clipboard is pushed into the kill ring.  https://github.com/raxod502/radian/blob/master/init.el
@@ -827,19 +952,17 @@
                        (while (> (line-number-at-pos) min) (join-line))))
                     (t (join-line -1)))))  ; modification: join with next line, instead of prev line
 
-  (defun my-delete-empty-lines ()
+  (defun my-delete-empty-lines-in-region ()
     "Replace repeated blank lines to just 1. Works on whole buffer or text selection, respects `narrow-to-region'. URL `http://ergoemacs.org/emacs/elisp_compact_empty_lines.html' Version 2017-09-22"
     (interactive)
-    (let ($begin $end)
-      (if (use-region-p)
-          (setq $begin (region-beginning) $end (region-end))
-        (save-excursion
-          (save-restriction
-            (narrow-to-region $begin $end)
-            (progn
-              (goto-char (point-min))
-              (while (re-search-forward "\n\n+" nil "move")
-                (replace-match "\n"))))))))
+    (let (($begin (region-beginning)) ($end (region-end)))
+      (save-excursion
+        (save-restriction
+          (narrow-to-region $begin $end)
+          (progn
+            (goto-char (point-min))
+            (while (re-search-forward "\n\n+" nil "move")
+              (replace-match "\n")))))))
   (defun my-delete-current-line ()
     (delete-region
      (progn (forward-visible-line 0) (point))
@@ -888,6 +1011,7 @@
   )
 
 ;; https://github.com/atykhonov/google-translate
+;; related: http://kitchingroup.cheme.cmu.edu/blog/2014/11/03/words-some-interesting-utilities-for-text-in-emacs/
 (use-package google-translate  ; and google-search and url address
   :init
   (define-globalized-minor-mode  ; https://stackoverflow.com/questions/16048231/how-to-enable-a-non-global-minor-mode-by-default-on-emacs-startup
@@ -913,6 +1037,15 @@
       (if (and (eq system-type 'darwin) (eq last-command 'my-google-translate-at-point))
           (shell-command (concat "open \"dict:///" word "\"")))
       (google-translate-at-point)))
+  (defun my-google-translate-at-clipboard ()
+    (interactive)
+    (let* ((langs (google-translate-read-args nil nil))
+           (source-language (car langs))
+           (target-language (cadr langs))
+           (bounds nil))
+      (google-translate-translate
+       source-language target-language
+       (current-kill 0))))
   (defun google-search (keywords)
     (browse-url (concat "http://www.google.com/search?q=" (url-hexify-string keywords))))  ; url-hexify-string is more general than (replace-regexp-in-string " " "+" str)
   (defun google-region-or-goto-address-at-point ()
@@ -933,17 +1066,26 @@
         (if (eq system-type 'darwin)
             ;; (browse-url "https://www.google.com") doesn't have address bar focus
             ;; cannot open about:blank using browse-url, which doesn't support non-url parameter.
-            (shell-command (concat "/Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome 'about:blank' && open -a Google\\ Chrome"))
+            (shell-command "/Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome 'about:blank' && open -a Google\\ Chrome")
           ;; 2>/dev/null to silent the message: "Failed to launch GPU process."
           ;; alt: https://emacs.stackexchange.com/questions/40829/
           ;;   cannot use (shell-command "xdotool search --class 'google-chrome' windowactivate") which always activate oldest window (wanted most recent window)
           (shell-command "google-chrome 'about:blank' 2>/dev/null"))
       (error "Not in window-system")))
+  (defun switch-to-chrome ()
+    (interactive)
+    (if (window-system)
+        (if (eq system-type 'darwin)
+            (shell-command "open -a Google\\ Chrome")
+          (shell-command "google-chrome 2>/dev/null"))
+      (error "Not in window-system")))
 
   :bind
   ("<f3>" . google-region-or-goto-address-at-point)
   ("C-t" . my-new-chrome-tab)
+  ("C-`" . switch-to-chrome)  ; = mac shortcut of switching chrome window; "M-`" for linux but it cannot be overrided
   ("<f2>" . my-google-translate-at-point)
+  ("C-M-d" . my-google-translate-at-clipboard)
   ("M-SPC <f2>" . google-translate-at-point-reverse)
   )
 
@@ -999,67 +1141,6 @@
   ("M-<left>" . keyboard-unindent)
   )
 
-(defun my-sudo-edit (&optional arg)  ; From http://emacsredux.com/blog/2013/04/21/edit-files-as-root/
-  "Edit currently visited file as root. With a prefix ARG prompt for a file to visit. Will also prompt for a file to visit if current buffer is not visiting a file."
-  (interactive "P")
-  (if (or arg (not buffer-file-name))
-      (find-file (concat "/sudo:root@localhost:" (ido-read-file-name "Find file(as root): ")))
-    (find-alternate-file (concat "/sudo:root@localhost:" buffer-file-name))))
-
-;; http://ergoemacs.org/emacs/emacs_new_empty_buffer.html
-;; https://emacs.stackexchange.com/questions/35803/how-to-get-emacs-to-prompt-when-a-new-buffer-is-changed-on-save
-;; https://emacs.stackexchange.com/questions/2191/copy-contents-of-current-buffer-in-a-temp-buffer-and-operate-on-that
-(defun my-new-buffer-with-selected-string ()
-  "Create a new empty buffer. New buffer will be named “untitled” or “untitled<2>”, “untitled<3>”, etc."
-  (interactive)
-  (let (($buf (generate-new-buffer "untitled"))
-        ($str (if (use-region-p) (buffer-substring-no-properties (region-beginning) (region-end)) "")))
-    (switch-to-buffer $buf)
-    (undo-tree-mode 1)  ; https://www.reddit.com/r/emacs/comments/4akvr3/how_to_enable_undotreemode_in_fundamentalmode/
-    (insert $str)
-    (setq buffer-offer-save t)
-    $buf))
-(bind-key "C-n" #'my-new-buffer-with-selected-string)
-
-(defun my-rm/delete-this-buffer-and-file ()  ; dangerous action -> no shortcut
-  "Removes file connected to current buffer and kills buffer."
-  (interactive)
-  (let ((filename (buffer-file-name))
-        (buffer (current-buffer))
-        (name (buffer-name)))
-    (if (not (and filename (file-exists-p filename)))
-        (error "Buffer '%s' is not visiting a file!" name)
-      (when (yes-or-no-p "Are you sure you want to remove this file? ")
-        (delete-file filename)
-        (kill-buffer buffer)
-        (message "File '%s' successfully removed" filename)))))
-
-(defun my-rename-current-buffer-file ()  ; https://stackoverflow.com/a/37456354
-  "Renames current buffer and file it is visiting."
-  (interactive)
-  (let* ((name (buffer-name))
-         (filename (buffer-file-name))
-         (basename (file-name-nondirectory filename)))
-    (if (not (and filename (file-exists-p filename)))
-        (error "Buffer '%s' is not visiting a file!" name)
-      (let ((new-name (read-file-name "New name: " (file-name-directory filename) basename nil basename)))
-        (if (get-buffer new-name)
-            (error "A buffer named '%s' already exists!" new-name)
-          (rename-file filename new-name 1)
-          (rename-buffer new-name)
-          (set-visited-file-name new-name)
-          (set-buffer-modified-p nil)
-          (message "File '%s' successfully renamed to '%s'"
-                   name (file-name-nondirectory new-name)))))))
-
-(defun revert-buffer-no-confirm ()  ; https://emacs.stackexchange.com/questions/10348
-  "Revert buffer without confirmation."
-  (interactive) (revert-buffer t t))
-(bind-key "C-r" #'revert-buffer-no-confirm)
-
-(defun region-or-symbol-at-point ()
-  (if (use-region-p) (buffer-substring-no-properties (region-beginning) (region-end)) (thing-at-point 'symbol)))
-
 ;; A Package in a league of its own: Helm http://tuhdo.github.io/helm-intro.html
 ;; Helm wiki https://github.com/emacs-helm/helm/wiki
 ;; Open Files In Different Ways https://www.emacswiki.org/emacs/OpenFilesInDifferentWays
@@ -1069,24 +1150,21 @@
 ;; TODO try: ace-isearch combines ace-jump-mode and helm-swoop http://sachachua.com/blog/2015/01/emacs-kaizen-ace-isearch-combines-ace-jump-mode-helm-swoop/
 (use-package helm
   :config
-  (setq helm-map (make-keymap))  ; https://stackoverflow.com/questions/7459019/is-there-a-way-to-reset-the-emacs-keymap
+  (setq helm-map (make-sparse-keymap))  ; https://stackoverflow.com/questions/7459019/is-there-a-way-to-reset-the-emacs-keymap
   (setq helm-buffer-map helm-map)  ; remove helm-buffer-map, which is redundant to me https://github.com/emacs-helm/helm/blob/master/helm-buffers.el
   ;; From https://gist.github.com/antifuchs/9238468
   (setq
-   helm-always-two-windows t            ; maximizes current buffer when helm is called, so that helm-swoop can be used for buffer at bottom window
-   helm-allow-mouse t                   ; mouse-1 select candidate, mouse-2 execute default action, mouse-3 popup menu actions https://github.com/emacs-helm/helm/issues/1746
-   helm-mode-line-string ""             ; original value is outdated and annoying
-   helm-follow-mode-persistent t        ; https://github.com/emacs-helm/helm/issues/210 https://github.com/emacs-helm/helm/issues/530
-   helm-buffer-max-length 40            ; some source codes has long file names (default = 20)
-   helm-dabbrev-cycle-threshold 0       ; disable no-popup-cycling, to always shows a list of candidates in a popup
-   ;; helm-buffers-fuzzy-matching t        ; the default pattern search is better (more controlable) than fuzzy search
-   ;; helm-move-to-line-cycle-in-source t  ; move to end or beginning of source when reaching top or bottom of source
-   ;; helm-candidate-number-limit 1000     ; original value was 100, too small for shell history
-   ;; helm-ff-skip-boring-files t
-   ;; helm-ff-auto-update-initial-value t  ; auto update when only one candidate directory is matched. https://groups.google.com/forum/#!topic/emacs-helm/K3FuveL5uTY inconvenient if i wanna go to top level dir
-   helm-dabbrev-separator-regexp "\\s-\\|\t\\|[(\[\{\"'`=<$,@.#+]\\|\\s\\\\|^\n\\|^"  ; remove ";" from separator to match tags
+   helm-always-two-windows t       ; maximizes current buffer when helm is called, so that helm-swoop can be used for buffer at bottom window
+   helm-allow-mouse t              ; mouse-1 select candidate, mouse-2 execute default action, mouse-3 popup menu actions https://github.com/emacs-helm/helm/issues/1746
+   helm-mode-line-string ""        ; original value is outdated and annoying
+   helm-follow-mode-persistent t   ; https://github.com/emacs-helm/helm/issues/210 https://github.com/emacs-helm/helm/issues/530
+   helm-buffer-max-length 40       ; some source codes has long file names (default = 20)
    helm-ff-transformer-show-only-basename nil  ; to show full file path in recentf/helm-locate in helm-mini https://emacs.stackexchange.com/questions/40934
+   ;; don't set: helm-buffers-fuzzy-matching t, as the default pattern search is better (more controlable) than fuzzy search
+   ;; don't set: helm-move-to-line-cycle-in-source t, to make it like a normal buffer
+   ;; don't set: helm-ff-auto-update-initial-value t, which auto update when only one candidate directory is matched. It's inconvenient if i wanna go to top level dir https://groups.google.com/forum/#!topic/emacs-helm/K3FuveL5uTY
    )
+  (advice-add 'helm-insert-completion-at-point :after (lambda (a b c) (deactivate-mark)))  ; helm-dabbrev triggers mark when no space to the next char
   (set-face-attribute 'helm-source-header nil :height 0.5)
   (add-to-list 'display-buffer-alist
                '("\\`\\*helm.*\\*\\'"
@@ -1096,12 +1174,15 @@
   ;; (add-to-list 'helm-sources-using-default-as-input 'helm-source-google-suggest) doesn't support region
   (defun helm-google-suggest-region-or-symbol ()  ; ref: helm-google-suggest-at-point https://github.com/emacs-helm/helm/pull/1614
     (interactive)
-    (when (not (use-region-p)) (mc--select-thing-at-point 'symbol) (convert-to-shift-selection))
+    (when (not (use-region-p)) (mc--select-thing-at-point 'symbol) (my-shift-select (mark)))  ; select in case of replacing
     (helm :sources 'helm-source-google-suggest
           :buffer "*helm google*"
-          :input (region-or-symbol-at-point)))
+          :input (buffer-substring-no-properties (region-beginning) (region-end))))
   (helm-mode)
   (advice-add 'helm-org-goto-marker :after (lambda (arg) (my-recenter-no-redraw)))  ; recenter after any jump, and during follow. lambda is needed to match the num of arg http://stackoverflow.com/a/36896945/550243
+  ;; select pasted text
+  ;; old code doesn't work: (exchange-point-and-mark) (my-shift-select (mark))
+  (advice-add 'helm-kill-ring-action-yank :after (lambda (arg) (my-shift-select (mark))))
   (with-eval-after-load "helm-ring" (helm-attrset 'follow 1 helm-source-mark-ring))  ; https://emacs.stackexchange.com/questions/26296
 
   (defun helm-copy-to-buffer ()  ; re-define helm-copy-to-buffer to delete active region (if any)
@@ -1116,9 +1197,9 @@
                               cands "\n"))))
        (helm-marked-candidates))))
 
-  ;; helm-swoop is for buffers, helm-grep is for files on-disk.
-  ;; i don't use helm-ag as i don't wanna install extra software.
-  (defun helm-grep-cur-dir-tree ()  ; http://stackoverflow.com/questions/30142296/
+  ;; not using helm-ag as i don't wanna install extra software (yet).
+  ;; related: https://github.com/yuutayamada/helm-ag-r
+  (defun helm-grep-cur-buffer-dir ()  ; http://stackoverflow.com/questions/30142296/
     "Recursively search current directory."
     (interactive)
     (setq  ; re-use minibuffer-history history
@@ -1128,13 +1209,12 @@
         (list default-directory)
         nil  ; no recurse to minimize delay
         nil  ; use default backend
-        '("*")  ; all files, e.g., txt, cc
-        (if (use-region-p) (buffer-substring-no-properties (region-beginning) (region-end))
-          (thing-at-point 'symbol))  ; default-input = region / symbol
+        '("*")  ; all files, e.g., .txt, .cc
+        (if (use-region-p) (buffer-substring-no-properties (region-beginning) (region-end)) (thing-at-point 'symbol))  ; default-input = region / symbol
         )
        helm-grep-history)))
 
-  ;; helm-my-imenu always shows the whole lines (like folding), while original helm-imenu and helm-semantic-or-imenu may truncate some lines in C++ mode.
+  ;; helm-my-imenu always shows the whole lines, while original helm-imenu and helm-semantic-or-imenu may truncate some lines in C++ mode.
   ;; from https://www.reddit.com/r/emacs/comments/3mtus3/how_to_display_a_list_of_classes_functions_etc/
   ;; TODO full syntax highlighting?
   ;; TODO try helm-imenu-in-all-buffers
@@ -1148,9 +1228,10 @@
                                (line-number-at-pos mrkr)
                                (progn (goto-char mrkr) (buffer-substring mrkr (line-end-position))))
                        (cons func-name mrkr))))))
-  (defvar helm-my-imenu-source  (helm-make-source "helm imenu" 'helm-imenu-source
-                                  :candidate-transformer 'helm-my-imenu-transformer
-                                  :follow 1))
+  (defvar helm-my-imenu-source
+    (helm-make-source "helm imenu" 'helm-imenu-source
+      :candidate-transformer 'helm-my-imenu-transformer
+      :follow 1))
   (defvar helm-my-imenu-history nil)
   (defun helm-my-imenu ()
     (interactive)
@@ -1160,11 +1241,9 @@
     (let ((imenu-auto-rescan t))
       (helm :sources 'helm-my-imenu-source
             :candidate-number-limit 9999  ; same as https://github.com/emacs-helm/helm/blob/master/helm-semantic.el
-            ;; :preselect str
+            ;; :preselect  TODO preselect current section
             :buffer "*helm imenu*"
-            :history 'helm-my-imenu-history)
-      ))
-
+            :history 'helm-my-imenu-history)))
   (defvar helm-my-doc-files
     (helm-build-sync-source (concat "My Doc: " my-doc-directory)  ; ref: defvar helm-source-ido-virtual-buffers in https://github.com/emacs-helm/helm/blob/master/helm-buffers.el
       :candidates (lambda ()
@@ -1177,7 +1256,6 @@
       :requires-pattern 1  ; to speedup helm-mini on Linux
       :match-part 'helm-basename  ; only match basename
       ))
-
   (require 'recentf)  ; needed for helm-my-delayed-recentf
   (defvar helm-my-delayed-recentf  ; replace helm-source-recentf, which is slow on Linux when the list contain contain something long to load (e.g., cc file in workspace) https://github.com/emacs-helm/helm/issues/1894
     (helm-build-sync-source "Recent"
@@ -1187,7 +1265,6 @@
       :requires-pattern 1  ; to speedup helm-mini on Linux
       :match-part 'helm-basename  ; only match basename
       ))
-
   (require 'helm-for-files)  ; for helm-files-in-current-dir-source
   (defvar helm-file-basename-in-current-dir
     (helm-make-source "Current Dir" 'helm-files-in-current-dir-source
@@ -1211,7 +1288,7 @@
 
   ;; adapted from https://github.com/emacs-helm/helm/blob/master/helm-net.el
   ;; added ":match 'identity" and ":fuzzy-match t" to disable filtering
-  ;; usage: auto-correct, e.g.,
+  ;; useful for auto-correct, e.g.,
   ;;   cronical diese -> chronic disease
   ;;   arbitary -> arbitrary
   ;;   sacrifies -> sacrifice
@@ -1224,7 +1301,7 @@
   (setq helm-source-google-suggest  ; use setq to re-defvar https://lists.gnu.org/archive/html/help-gnu-emacs/2009-06/msg00397.html
         (helm-build-sync-source "Google Suggest"
           :candidates (lambda () (funcall helm-google-suggest-default-function))
-          ;; :action 'helm-google-suggest-actions  ; commented out old default action (search on google), as i want default action = insert the string, like helm-dabbrev
+          ;; :action 'helm-google-suggest-actions  ; commented out old default action (search on google), as i want default action = insert the string, similar to helm-dabbrev
           :action '(("insert" . (lambda (cands)
                                   (with-helm-current-buffer
                                     (if (use-region-p) (delete-region (region-beginning) (region-end)))  ; added to delete region if any.
@@ -1288,21 +1365,20 @@
         (helm-maybe-exit-minibuffer))))
   (with-eval-after-load 'helm-files
     (setq helm-find-files-map (make-sparse-keymap))  ; originally defined in https://github.com/emacs-helm/helm/blob/master/helm-files.el
-    (define-key helm-find-files-map (kbd "<backspace>") 'helm-ido-like-find-files-up-one-level-maybe)
     (define-key helm-find-files-map (kbd "DEL") 'helm-ido-like-find-files-up-one-level-maybe)
-    (define-key helm-find-files-map (kbd "<return>") 'helm-ido-like-find-files-navigate-forward)
     (define-key helm-find-files-map (kbd "RET") 'helm-ido-like-find-files-navigate-forward)
-    (setq helm-read-files-map 'helm-find-files-map))
+    (setq helm-read-files-map 'helm-find-files-map)
+    (setq helm-mode-dired-map 'helm-find-files-map))
 
   :bind
   ("M-w"       . helm-my-mini)  ; so that switch to prev file = M-w M-q
   ("<mouse-3>" . helm-my-mini)
-  ("M-SPC M-m" . helm-my-imenu)
+  ("M-SPC M-i" . helm-my-imenu)  ; as "M-SPC M-i" = prev item in imenu, M-i is easier than M-u
   ("M-SPC M-v" . helm-show-kill-ring)
   ("M-SPC M-l" . helm-google-suggest-region-or-symbol)
-  ("M-SPC M-f" . helm-grep-cur-dir-tree)
+  ("M-L" . helm-grep-cur-buffer-dir)
   ("C-o" . helm-find-files)   ; original C-o runs the command open-line ≈ C-e RET
-  ("M-SPC M-x" . helm-M-x)    ; if use M-x, M-X would be wasted.  Avoid using M-x / C-c M-x, as M-x = delete line
+  ("M-/" . helm-M-x)    ; if use M-x, M-X would be wasted.  M-/ or opt-/ = Google Doc's "Search the menus"
   ("<tab>" . helm-dabbrev)    ; better than dabbrev, which is not very useful if we have company, company doesn't include dabbrev
   ;; TODO helm-all-mark-rings cannot show context lines? https://github.com/emacs-helm/helm/issues/261
   ("M-SPC M-p" . helm-mark-ring)  ; or helm-all-mark-rings?
@@ -1329,11 +1405,12 @@
         ("M-v" . helm-copy-to-buffer)    ; similar to C-v
         ("M-SPC M-k" . helm-beginning-of-buffer)
         ("M-SPC M-j" . helm-end-of-buffer)
+        ("C-w" . helm-buffer-run-kill-buffers)  ; only applicable in helm-buffer
+        ("C-g" . helm-keyboard-quit)
+        ("M-l" . helm-maybe-exit-minibuffer)  ; avoid error of running helm in helm
         ("M-w" . helm-maybe-exit-minibuffer)
         ("RET" . helm-maybe-exit-minibuffer)
         ("M-RET" . helm-maybe-exit-minibuffer)  ; convenient as Meta is on usually inside helm
-        ("C-w" . helm-buffer-run-kill-buffers)  ; only applicable in helm-buffer
-        ("C-g" . helm-keyboard-quit)
         )
   :bind
   (:map shell-mode-map
@@ -1344,17 +1421,8 @@
         ("M-i" . nil)  ; originally bind to helm-ff-properties-persistent (which shows file properties)
         ))
 
-;; https://github.com/cute-jumper/ace-jump-helm-line
-(use-package ace-jump-helm-line
-  :after helm  ; instead of (with-eval-after-load 'helm ...)
-  :config
-  ;; doesn't load package if use ":bind" here, ref: https://github.com/syl20bnr/spacemacs/blob/master/layers/%2Bcompletion/helm/packages.el
-  (define-key helm-map (kbd "M-;") 'ace-jump-helm-line)
-  (setq ace-jump-helm-line-default-action 'select)
-  )
-
 (use-package helm-c-yasnippet
-  :config
+  :init
   (setq helm-yas-display-key-on-candidate t)  ; to learn the snippet key
   :bind
   ("M-SPC <tab>" . helm-yas-complete)
@@ -1388,23 +1456,67 @@
     (interactive)
     (while isearch-mode (isearch-abort)))
 
+  ;; copied from function split-string, to replace split-string in helm-swoop below
+  ;; replaced 'this' by '(concat "\b" this)'
+  (defun my-split-string (string &optional separators omit-nulls trim)
+    (let* ((keep-nulls (not (if separators omit-nulls t)))
+	         (rexp (or separators split-string-default-separators))
+	         (start 0)
+	         this-start this-end
+	         notfirst
+	         (list nil)
+	         (push-one
+	          ;; Push the substring in range THIS-START to THIS-END
+	          ;; onto LIST, trimming it and perhaps discarding it.
+	          (lambda ()
+	            (when trim
+	              ;; Discard the trim from start of this substring.
+	              (let ((tem (string-match trim string this-start)))
+		              (and (eq tem this-start)
+		                   (setq this-start (match-end 0)))))
+	            (when (or keep-nulls (< this-start this-end))
+	              (let ((this (substring string this-start this-end)))
+		              ;; Discard the trim from end of this substring.
+		              (when trim
+		                (let ((tem (string-match (concat trim "\\'") this 0)))
+		                  (and tem (< tem (length this))
+			                     (setq this (substring this 0 tem)))))
+		              ;; Trimming could make it empty; check again.
+		              (when (or keep-nulls (> (length this) 0))
+		                (push this list)))))))
+      (while (and (string-match rexp string
+			                          (if (and notfirst
+				                                 (= start (match-beginning 0))
+				                                 (< start (length string)))
+				                            (1+ start) start))
+		              (< start (length string)))
+        (setq notfirst t)
+        (setq this-start start this-end (match-beginning 0)
+	            start (match-end 0))
+        (funcall push-one))
+      ;; Handle the substring at the end of STRING.
+      (setq this-start start this-end (length string))
+      (funcall push-one)
+      (nreverse list)))
   (defun my-helm-swoop ()
     (interactive)
-    (if (and (use-region-p) (string-match "\n" (buffer-substring-no-properties (region-beginning) (region-end)))) (narrow-to-region (region-beginning) (region-end)))
-    (helm-swoop)
+    (when (and (use-region-p) (string-match "\n" (buffer-substring-no-properties (region-beginning) (region-end))))
+      (narrow-to-region (region-beginning) (region-end))
+      (deactivate-mark))
+    (cl-letf (((symbol-function 'split-string) (lambda (s &optional SEPARATORS OMIT-NULLS TRIM) (mapcar 'regexp-quote (my-split-string s SEPARATORS OMIT-NULLS TRIM)))))
+      (helm-swoop :$query (when (use-region-p) (buffer-substring-no-properties (region-beginning) (region-end)))))
     )
   (setq helm-swoop-move-to-line-cycle nil)  ; make it the same as other helm
 
   :bind
   ("M-l" . my-helm-swoop)  ; M-g is easier than C-f, and swoop is more useful
-  ("M-L" . helm-multi-swoop-all)
   ("C-f" . isearch-within-visible-portion-of-cur-buf)
   ("C-M-f" . isearch-forward)  ; e.g., for full buffer word highlight
 
   :bind
   (:map helm-swoop-map
         ("M-i" . nil)  ; originally bind to helm-multi-swoop-all-from-helm-swoop
-        ("C-a" . helm-multi-swoop-all-from-helm-swoop)
+        ;; ("M-l" . helm-multi-swoop-all-from-helm-swoop)
         ("M-G" . helm-previous-line)
         )
 
@@ -1426,7 +1538,7 @@
         ("C-S-f" . isearch-repeat-backward)  ; "C-F" doesn't work?
         ("C-M-f" . isearch-repeat-backward)
         ("<escape>" . isearch-abort-all)
-        ("<backspace>" . isearch-del-char)  ; del-char instead of cycle backward https://www.reddit.com/r/emacs/comments/2adj9w
+        ("DEL" . isearch-del-char)  ; del-char instead of cycle backward https://www.reddit.com/r/emacs/comments/2adj9w
         )
   )
 
@@ -1502,7 +1614,7 @@
         (when (= (mc/num-cursors) 1)  ; C-d has no well-defined behavior when there is no region and in mc mode
           (mc--select-thing-at-point 'symbol)
           (if (use-region-p)
-              (convert-to-shift-selection)
+              (my-shift-select (mark))
             (skip-chars-forward "\t ")  ; select \t and spaces if no word/symbol selected
             (let ((end (point)))
               (skip-chars-backward "\t ")
@@ -1532,9 +1644,9 @@
   ("C-M-p" . my-mc/unmark-next-like-this-with-cycle)  ; = sublime's C-u https://www.sublimetext.com/docs/2/multiple_selection_with_the_keyboard.html
   ("C-M-n" . my-mc/mark-next-like-this-with-cycle)    ; as the movement is similar to M-n
   ("C-M-u" . my-mc/skip-to-next-like-this-with-cycle) ; sublime uses C-k C-d, which is not convenient http://stackoverflow.com/questions/11548308
-  ("M-SPC C-a"   . mc/mark-all-like-this)
+  ("M-SPC C-a" . mc/mark-all-like-this)
   ("M-SPC M-a" . mc/mark-all-like-this-dwim)
-  ("M-SPC a" . mc/edit-lines)  ; useful after selecting a block of text, e.g., by expand-region
+  ("M-SPC a"   . mc/edit-lines)  ; useful after selecting a block of text, e.g., by expand-region
   ("C-M-<down-mouse-1>" . mc/add-cursor-on-click)  ; "C-<mouse-1>" is used and cannot be overrided in both Mac and Ubuntu https://github.com/magnars/multiple-cursors.el#binding-mouse-events (C-M-n + mouse click has a similar effect)
   ("C-M-v" . yank-rectangle)  ; paste multiple string copied by multiple cursors after exiting multiple-cursors https://emacs.stackexchange.com/questions/10879 related: https://emacs.stackexchange.com/questions/10836
 
@@ -1547,8 +1659,10 @@
         ("M-," . mc/cycle-backward)  ; original cmd my-prev-symbol is not useful in mc mode
         ("M-m" . mc/cycle-forward)
         ("C-f" . phi-search)
+        ("C-S-f" . phi-search-backward)
         ("C-M-f" . phi-search-backward)
-        ("M-z" . my-mc/redo-disabled)
+        ("C-S-z" . my-mc/redo-disabled)
+        ("C-M-z" . my-mc/redo-disabled)
         ;; C-c prefix for mode specific keys
         ("C-c M-1" . mc/insert-numbers)  ; insert a number sequence (starting with 0) http://stackoverflow.com/questions/29838244
         ("C-c M-2" . mc/insert-letters)
@@ -1588,11 +1702,11 @@
 ;; (setq fast-but-imprecise-scrolling t)  ; https://emacs.stackexchange.com/questions/31402/how-to-avoid-scrolling-with-large-files-hanging-for-short-periods-of-time-hold
 
 ;; disable all c-electric kbd; not to override C-d; not to override "=" which disabled delete-selection-mode
-(setq c++-mode-map (make-keymap))
-(setq c-mode-map (make-keymap))
-(setq protobuf-mode-map (make-keymap))
-(setq makefile-mode-map (make-keymap))  ; https://github.com/jwiegley/emacs-release/blob/master/lisp/progmodes/make-mode.el
-(setq sh-mode-map (make-keymap))  ; e.g., '=' runs the command sh-assignment, which breaks mc with (delete-selection-mode t)
+(setq c++-mode-map (make-sparse-keymap))
+(setq c-mode-map (make-sparse-keymap))
+(setq protobuf-mode-map (make-sparse-keymap))
+(setq makefile-mode-map (make-sparse-keymap))  ; https://github.com/jwiegley/emacs-release/blob/master/lisp/progmodes/make-mode.el
+(setq sh-mode-map (make-sparse-keymap))  ; e.g., '=' runs the command sh-assignment, which breaks mc with (delete-selection-mode t)
 ;; (setq-default c-electric-flag nil)
 ;; (add-hook 'prog-mode-hook (lambda () (use-local-map nil)))  ; https://emacs.stackexchange.com/questions/33177 disable all mode specific kbd for shorter mc cmd lists (c-mode-base-map has many c-electric kbds)
 
@@ -1758,8 +1872,8 @@
   (ad-activate 'compilation-start)
 
   :bind
-  ("M-SPC M-u" . next-error-cycle)
-  ("M-SPC M-i" . previous-error)
+  ("M-SPC M-m" . next-error-cycle)
+  ("M-SPC M-," . previous-error)
   :bind
   (:map compilation-mode-map  ; https://github.com/emacs-mirror/emacs/blob/master/lisp/progmodes/compile.el
         ("M-n" . nil)  ; originally bind to compilation-next-error
@@ -1779,10 +1893,10 @@
 ;; xx highlight-symbol won't highlight selection https://github.com/nschum/highlight-symbol.el/issues/32
 ;; vv highlight-symbol-jump shows number of occurrences in minibuffer
 ;; don't use isearch, which needs an extra key to exit the isearch-mode
-(use-package highlight-symbol  ; only for highlight-symbol-jump function
+(use-package highlight-symbol  ; only for getting highlight-symbol-jump function
   :config
   (defun shift-select-next (str dir)
-    (let ((case-fold-search nil))  ; set to case-sensitive
+    (let ((case-fold-search nil))  ; (str (regexp-quote s)))  ; set to case-sensitive
       (if (and (use-region-p) (if (< 0 dir) (< (point) (mark)) (< (mark) (point))))
           (exchange-point-and-mark))  ; to fix the problem no jumping when changing search direction
       (unless (re-search-forward str nil t dir)  ; 3rd param = t -> don't show message if not found
@@ -1797,11 +1911,11 @@
   (defun my-symbol-jump (dir)
     (if (use-region-p)
         ;; no need to use highlight-symbol-border-pattern (which is used in highlight-symbol-get-symbol) when we have a region
-        (let ((str (regexp-quote (buffer-substring-no-properties (region-beginning) (region-end)))))
+        (let ((str (buffer-substring-no-properties (region-beginning) (region-end))))
           (shift-select-next str dir)
           (add-to-history minibuffer-history-variable str))
       (highlight-symbol-jump dir)  ; search symbol with boundaries, different from the default isearch
-      (add-to-history minibuffer-history-variable (highlight-symbol-get-symbol))  ; every search (e.g., C-n/p) update history to have a fast jump / re-search
+      (add-to-history minibuffer-history-variable (thing-at-point 'symbol))  ; don't use highlight-symbol-get-symbol which adds border-pattern
       (my-recenter-no-redraw)))
   (defun my-next-symbol () (interactive) (my-symbol-jump 1))
   (defun my-prev-symbol () (interactive) (my-symbol-jump -1))
@@ -1865,7 +1979,7 @@
 ;; https://github.com/kyagi/shell-pop-el
 (use-package shell-pop  ; and term
   :config
-  (setq shell-pop-shell-type (quote ("ansi-term" "*ansi-term*" (lambda nil (ansi-term shell-pop-term-shell))))
+  (setq shell-pop-shell-type (quote ("ansi-term" "*term*" (lambda nil (ansi-term shell-pop-term-shell))))
         shell-pop-window-size 25
         shell-pop-full-span t
         shell-pop-autocd-to-working-dir nil)
@@ -1877,8 +1991,8 @@
     (save-some-buffers t)  ; save all files, in case the shell command cause some problem.
     (if (string= "term-mode" major-mode)  ; similar to https://www.enigmacurry.com/2008/12/26/emacs-ansi-term-tricks/
         (progn
-          (shell-pop-out)
-          (shell-pop-up nil))  ; open a new term
+          (shell-pop-up nil)  ; create a new term
+          (keyboard-escape-quit))  ; to get a full window
       (let ((min nil) (max nil))
         (if (use-region-p)
             (setq min (region-beginning) max (region-end))
@@ -1889,9 +2003,9 @@
           (setq max (point-at-eol)))
         (let ((current-window (get-buffer-window (current-buffer)))
               (command (if min (concat (buffer-substring-no-properties min max) "\n") nil)))  ; need to get the command before calling shell-pop, which changes buffer
-          (shell-pop nil)
+          (shell-pop 1)  ; always send to ansi-term-1
           (when min
-            (comint-send-string "*ansi-term-1*" command)
+            (comint-send-string "*term-1*" command)
             (select-window current-window)
             (unless (use-region-p) (forward-line)))))))
   (defun term-send-tab  () (interactive) (term-send-raw-string "\C-i"))
@@ -1907,11 +2021,59 @@
      (setq imenu-generic-expression '(("" "^\\$ \\(.*\\)$" 1)))))
   (add-hook 'shell-pop-in-after-hook (lambda () (term-to-term-char-mode) (set-process-query-on-exit-flag (get-buffer-process (current-buffer)) nil)))
 
+  ;; https://github.com/yuutayamada/helm-shell-history/blob/master/helm-shell-history.el
+  ;; related: https://github.com/yuutayamada/helm-ag-r
+  (defvar helm-shell-history-file (shell-command-to-string "bash -ic 'echo -n $HISTFILE' 2>/dev/null")  ; https://emacs.stackexchange.com/questions/31318/how-to-print-histfile
+    "Specify your the history filepath of bash or zsh etc.
+By default it is specified variable of $HISTFILE")
+  (defvar helm-shell-history-command
+    (lambda (pattern)
+      (let* ((patterns (split-string pattern))
+             (grep (when (string< "" pattern)
+                     (helm-shell-history-make-grep-command patterns))))
+        (mapconcat 'identity (delq nil
+                                   `(,(concat "\\tac " helm-shell-history-file)
+                                     ,grep
+                                     "\\sed 's/^: [0-9]*:[0-9];//'"))
+                   " | "))))
+  (defun helm-shell-history-make-grep-command (patterns)
+    "Return grep command form PATTERNS."
+    (cl-loop with cmd = "\\grep -E -e "
+             for search-word in patterns
+             collect (concat cmd " \"" search-word "\" ") into result
+             finally return (mapconcat 'identity result " | ")))
+  (defvar helm-c-shell-history
+    '((name . "helm-shell-history")
+      (candidates-process . (lambda ()
+                              (start-process
+                               "helm-shell-history-process" nil "/bin/sh" "-c"
+                               (funcall helm-shell-history-command
+                                        helm-pattern))))
+      (nohighlight)
+      (candidates-in-buffer)
+      (action . (lambda (line)
+                  (funcall helm-shell-history-action-function line)))
+      (delayed)))
+  (defvar helm-shell-history-action-function
+    (lambda (line)
+      (cl-case major-mode
+        (term-mode (term-send-raw-string line))
+        (t         (insert line)))))
+  (defun helm-shell-history ()
+    "Display command line history from history file.
+You can specify at `helm-shell-history-file'."
+    (interactive)
+    (helm :sources helm-c-shell-history
+          :candidate-number-limit 9999
+          :prompt "shell command: "
+          :buffer "*helm shell history*"))
+
   :bind
   ;; https://github.com/emacs-mirror/emacs/blob/master/lisp/term.el
   (:map term-mode-map  ; similar to shell-mode
-        ("RET" . term-to-term-char-mode)
+        ("<escape>" . term-to-term-char-mode)
         ("C-c C-c" . nil)  ; originally bind to term-interrupt-subjob, i.e., was same as shell-mode
+        ("RET" . nil)
         ("M-p" . nil)
         ("M-n" . nil)
         ("M-r" . nil)
@@ -1928,20 +2090,18 @@
         ;; movements
         ("M-j" . nil)
         ("M-k" . nil)
-        ("M-u" . nil)
-        ("M-i" . nil)
-        ("M-y" . nil)
-        ("M-o" . nil)
         ;; window/frame functions
         ("<escape>" . nil)
         ("C-g" . keyboard-quit)  ; for expanding window by <escape> x 2
         ("C-s" . nil)
         ("C-q" . nil)
         ("C-o" . nil)
-        ("M-z" . nil)
+        ("M-/" . nil)
+        ("M-Q" . nil)
         ("M-w" . nil)
         ("C-w" . nil)
         ("C-M-w" . nil)
+        ("M-SPC M-u" . helm-shell-history)
         )
   :bind
   ("M-SPC M-s" . shell-send-region-or-line)
@@ -1956,7 +2116,7 @@
   (global-undo-tree-mode)
   (setq undo-tree-visualizer-timestamps t
         undo-tree-visualizer-diff t
-        undo-tree-enable-undo-in-region nil)  ; disable region-restricted undo/redo, which is unpredictable, not available in most common editors, and buggy https://emacs.stackexchange.com/questions/37393
+        undo-tree-enable-undo-in-region nil)  ; disable region-restricted undo/redo, which is unpredictable, not available in most common editors, and buggy https://emacs.stackexchange.com/questions/37393 https://emacs.stackexchange.com/questions/51956
   (add-hook 'undo-tree-visualizer-mode-hook (lambda () (setq undo-tree-visualizer-diff t)))  ; https://mail.google.com/mail/u/0/?zx=77451guns65d#sent/1566d68e1a50afc6
   :bind
   (:map undo-tree-map
@@ -1974,6 +2134,10 @@
         ;; make undo-tree-visualizer as a version selector (e.g., like helm-swoop as a location selector)
         ("C-g" . undo-tree-visualizer-abort)  ; = no change on buffer
         ("RET" . undo-tree-visualizer-quit)
+        ("M-f" . undo-tree-visualize-switch-branch-right)
+        ("M-b" . undo-tree-visualize-switch-branch-left)
+        ("M-n" . undo-tree-visualize-redo)
+        ("M-p" . undo-tree-visualize-undo)
         ))
 
 
@@ -1983,7 +2147,8 @@
   :ensure org-plus-contrib  ; https://www.reddit.com/r/emacs/comments/5sx7j0/how_do_i_get_usepackage_to_ignore_the_bundled/ https://emacs.stackexchange.com/questions/7890
   :config
   (setq
-   org-adapt-indentation nil         ; prevent shifting text inside a section when demoting the section heading
+   initial-major-mode 'org-mode   ; i seldom use the default lisp-interaction-mode (which rebinds C-j)
+   org-adapt-indentation nil      ; prevent shifting text inside a section when demoting the section heading
    org-confirm-babel-evaluate nil
    org-descriptive-links nil
    org-edit-src-content-indentation 0
@@ -1999,8 +2164,8 @@
    org-startup-truncated nil
    org-emphasis-alist  ; http://stackoverflow.com/questions/22491823/disable-certain-org-mode-markup
    ;; no bold, as bold doesn't work well for Chinese characters on Mac emacs
-   '(("*" (:foreground "pink" :background "pink") "<b>" "</b>")  ; "test" is better than "highlighting"
-     ("_" (:foreground "dark orange") "<span style=\"text-decoration:underline;\">" "</span>")  ; no underline which decrease readability
+   '(("*" (:foreground "peru" :background "peru") "<b>" "</b>")  ; "test" is better than "highlighting", ≈ ankit's cloze
+     ("_" (:foreground "red") "<span style=\"text-decoration:underline;\">" "</span>")  ; no underline which decrease readability
      ("~" org-verbatim "<code>" "</code>" verbatim)
      ;; ("=" ...)  ; =...= is common in sample code notes -> high FPR -> disable it
      ;; ("/" ...)  ; /.../ is common in path
@@ -2011,26 +2176,6 @@
   (modify-syntax-entry ?/ "." org-mode-syntax-table)  ; to make a word stop in the middle of "=/", e.g., in "file=/path/..."
   (modify-syntax-entry ?\n ">" org-mode-syntax-table) ; to unify org and prog modes: to make a word stop in between SPCs and RETs. \n = C-j in syntax table
   (modify-syntax-entry ?\; "w" org-mode-syntax-table) ; for ;tag syntax
-
-  (defvar helm-my-org-in-buffer-headings-history nil)
-  (defun helm-my-org-in-buffer-headings()
-    (interactive)
-    (widen)
-    (deactivate-mark)  ; to avoid distorted region with (setq cua-keep-region-after-copy t)
-    (setq helm-my-org-in-buffer-headings-history
-          (let ((minibuffer-history helm-my-org-in-buffer-headings-history))
-            (helm-org-in-buffer-headings) minibuffer-history)))
-  (with-eval-after-load "helm-org"  ; use eval-after-load to make sure the new defun overrides the old one
-    ;; related: worf-goto http://stackoverflow.com/questions/28030946/emacs-org-mode-search-only-headers
-    ;; (define-key helm-org-headings-map (kbd "M-1") (lambda () (interactive) (helm-set-pattern "^\\*\\ ")))  ; show top level headings only
-    ;; redefine helm-source-org-headings-for-files to add ":follow 1", original function: https://github.com/emacs-helm/helm/blob/master/helm-org.el
-    ;; TODO highlight line when following, like helm-swoop
-    ;; OR use (symbol-value source)? http://emacs.stackexchange.com/questions/2563/
-    (defun helm-source-org-headings-for-files (filenames &optional parents)
-      (helm-make-source "Org Headings" 'helm-org-headings-class
-        :parents parents
-        :candidates filenames
-        :follow 1)))
 
 ;;; org-babel
   ;; read user input http://stackoverflow.com/questions/37028455
@@ -2067,10 +2212,11 @@
      ("^ *\\(-\\) " (0 (prog1 () (compose-region (match-beginning 1) (match-end 1) "▹"))))
      ("\\(✘\\)" (1 '(:foreground "#BB0000")))
      ("\\(✔\\)" (1 '(:foreground "#00BB00")))
-     ("\\(;[0-9a-z-]+\\)" (1 '(:foreground "purple1")))  ; ;tag uses only lower case to minimize num of choice; use '-' instead of '_' because 1) '-' is used in English word, 2) minimize num of choice for faster search, 3) easier to type
+     ("\\(  << .+\\)" (1 '(:foreground "dark orange") t))  ; to give reason(s)
+     ("\\b\\(;[0-9a-z-]+\\)" (1 '(:foreground "purple1")))  ; ;tag uses only lower case to minimize num of choice; use '-' instead of '_' because 1) '-' is used in English word, 2) minimize num of choice for faster search, 3) easier to type
      ("\\(// \\)" (1 '(:foreground "#00CC00")))  ; comment
      ("\"\\(\\(?:.\\|\n\\)*?[^\\]\\)\"" 0 font-lock-string-face)  ; highlight double quoted text https://stackoverflow.com/questions/7155528
-     ("\\(e\\.g\\.,\\|i\\.e\\.,\\|vs\\.\\|<->\\|->\\|<-\\|~>\\|<~\\|❱\\|<2.\\{13\\}>\\)" (1 '(:foreground "chocolate")))  ; common functional strings
+     ("\\(≈\\|e\\.g\\.,\\|i\\.e\\.,\\|vs\\.\\|<->\\|->\\|<-\\|~>\\|<~\\|❱\\|<2.\\{13\\}>\\)" (1 '(:foreground "chocolate")))  ; common functional strings
      ;; syntax highlight for Org-mode inline source code src_lang{} https://stackoverflow.com/questions/20309842
      ;; removed "weight:" due to: Invalid face attribute :weight (quote normal). Invalid face attribute :weight (quote bold)
      ("\\(src_\\)\\([^[{]+\\)\\(\\[:.*\\]\\){\\([^}]*\\)}"
@@ -2101,10 +2247,39 @@
   ;; delete highlighted region if any http://www.chenblog.xyz/questions/2614710/in-org-mode-how-to-make-return-delete-highlighted-region
   (define-key org-mode-map
     (kbd "RET")
-    (lambda() (interactive) (if (use-region-p) (delete-region (region-beginning) (region-end))) (call-interactively 'org-return)))
+    (lambda() (interactive)
+      (if (use-region-p) (delete-region (region-beginning) (region-end)))
+      (if (org-at-table-p)
+          (org-table-insert-row t)  ; otherwise, 'RET' just moves down a cell in a table, not consistent with "creating a new line"
+        (call-interactively 'org-return))))
   (define-key org-mode-map
     (kbd "M-RET")
     (lambda() (interactive) (if (use-region-p) (delete-region (region-beginning) (region-end))) (call-interactively 'org-meta-return)))
+
+  (use-package helm-org
+    :config
+    (defvar helm-my-org-in-buffer-headings-history nil)
+    (defun helm-my-org-in-buffer-headings()
+      (interactive)
+      (widen)
+      (deactivate-mark)  ; to avoid distorted region with (setq cua-keep-region-after-copy t)
+      (setq helm-my-org-in-buffer-headings-history
+            (let ((minibuffer-history helm-my-org-in-buffer-headings-history))
+              (helm-org-in-buffer-headings) minibuffer-history)))
+    ;; related: worf-goto http://stackoverflow.com/questions/28030946/emacs-org-mode-search-only-headers
+    ;; (define-key helm-org-headings-map (kbd "M-1") (lambda () (interactive) (helm-set-pattern "^\\*\\ ")))  ; show top level headings only
+    ;; redefine helm-source-org-headings-for-files to add ":follow 1", original function: https://github.com/emacs-helm/helm/blob/master/helm-org.el
+    ;; TODO highlight line when following, like helm-swoop
+    ;; OR use (symbol-value source)? http://emacs.stackexchange.com/questions/2563/
+    (defun helm-source-org-headings-for-files (filenames &optional parents)
+      (helm-make-source "Org Headings" 'helm-org-headings-class
+        :parents parents
+        :candidates filenames
+        :follow 1))
+    :bind
+    (:map org-mode-map
+          ("M-SPC M-i" . helm-my-org-in-buffer-headings))  ; helm-imenu is very slow in big org file on Linux
+    )
 
   :bind
   ("M-SPC M-o" . org-forward-sentence)
@@ -2114,20 +2289,21 @@
   ("M-+" . org-increase-number-at-point)  ; original M-+ is not used. C-+ is N/A in terminal; good for mc
   :bind
   (:map org-mode-map
-        ("M-v" . org-cycle)
+        ("C-c <tab>" . org-cycle)
         ("M-S-v" . org-shifttab)
-        ("M-SPC M-m" . helm-my-org-in-buffer-headings)
         ("C-c M-t" . org-table-transpose-table-at-point)  ; new kbd
         ("C-c M-g" . org-metaright)  ; originally bind to M-<right>, not convenient
         ("C-c M-s" . org-metaleft)
-        ("C-c M-L" . org-shiftmetaright)
-        ("C-c M-S" . org-shiftmetaleft)
+        ("C-c M-o" . org-shiftmetaright)
+        ("C-c M-y" . org-shiftmetaleft)
+        ("C-c M-u" . org-shiftmetadown)
+        ("C-c M-i" . org-shiftmetaup)
         ("C-c M-k" . org-metaup)
         ("C-c M-j" . org-metadown)
-        ("C-c M-o" . org-shiftright)
-        ("C-c M-y" . org-shiftleft)
-        ("C-c M-i" . org-shiftup)
-        ("C-c M-u" . org-shiftdown)
+        ("C-c M-f" . org-shiftright)
+        ("C-c M-b" . org-shiftleft)
+        ("C-c M-p" . org-shiftup)
+        ("C-c M-n" . org-shiftdown)
         ("C-c C-n" . nil)  ; org-next-visible-heading, M-u is better
         ("C-c C-p" . nil)  ; similar to C-c C-n
         ([(shift left)]     . nil)  ; org-shiftleft
@@ -2153,12 +2329,14 @@
         ("C-y" . nil)
         ("C-a" . nil)
         ("C-e" . nil)
-        ("M-h" . nil)  ; org-mark-element
         ("C-'" . nil)  ; org-cycle-agenda-files, which is useless and annoying to me
         ))
 
-;; src https://github.com/Sodel-the-Vociferous/inline-crypt-el/blob/master/inline-crypt.el
-(use-package inline-crypt
+;; EmacsWiki: Auto Encryption https://www.emacswiki.org/emacs/AutoEncryption
+;; Encrypting org Files. http://orgmode.org/worg/org-tutorials/encrypting-files.html
+;; Keeping Secrets in Emacs with GnuPG and Auth Sources - Mastering Emacs https://www.masteringemacs.org/article/keeping-secrets-in-emacs-gnupg-auth-sources
+;; inline-crypt src https://github.com/Sodel-the-Vociferous/inline-crypt-el/blob/master/inline-crypt.el
+(use-package inline-crypt  ; encryption
   :config
   (add-to-list 'display-buffer-alist  ; ref: https://www.gnu.org/software/emacs/manual/html_node/elisp/Display-Action-Functions.html
                '("\\`\\*inline-crpyt\\*\\'"
@@ -2181,98 +2359,9 @@
 ;;   (add-to-list 'org-babel-load-languages '(go . t))
 ;;   (org-babel-do-load-languages 'org-babel-load-languages org-babel-load-languages))
 
-;; src https://github.com/fniessen/emacs-leuven-theme
-;; pros: prettier org-mode source code blocks https://www.reddit.com/r/emacs/comments/415imd/prettier_orgmode_source_code_blocks/
-(use-package leuven-theme
-  :after org  ; to redefine org-block-*-line
-  :config
-  (load-theme 'leuven t)
-  (defface right-triangle-face '((t (:foreground "red"))) "Face for `right-triangle-face`.")  ; https://emacs.stackexchange.com/questions/13134/emphasise-the-current-error-in-the-compilation-window
-  (set-fringe-bitmap-face 'right-triangle 'right-triangle-face)
-  ;; remove org-*-line background, underline and overline, which are too disturbing.  or use (face-attribute 'default :background) instead of nil
-  (set-face-attribute 'org-block-begin-line nil :underline nil :background nil :foreground "#00BB00")
-  (set-face-attribute 'org-block-end-line   nil :overline  nil :background nil :foreground "#00BB00")
-  (set-face-attribute 'org-block nil :background "#FFFFF0")  ; lighter than original color: FFFFE0
-  (set-face-attribute 'org-meta-line nil :background nil)
-
-  ;; (use-package mic-paren)
-  ;; (paren-activate)
-  ;; (setq paren-match-face "gold")
-  )
-
 ;; highlight parentheses surrounding point https://www.emacswiki.org/emacs/HighlightParentheses https://github.com/tsdh/highlight-parentheses.el
 (use-package highlight-parentheses  ; pairs, brackets
-  :after leuven-theme
   :defer 3
-  :init
-  ;; http://ergoemacs.org/emacs/emacs_navigating_keys_for_brackets.html
-  (defvar xah-brackets nil "string of left/right brackets pairs.")
-  (setq xah-brackets "()[]{}<>（）［］｛｝⦅⦆〚〛⦃⦄“”‘’‹›«»「」〈〉《》【】〔〕⦗⦘『』〖〗〘〙｢｣⟦⟧⟨⟩⟪⟫⟮⟯⟬⟭⌈⌉⌊⌋⦇⦈⦉⦊❛❜❝❞❨❩❪❫❴❵❬❭❮❯❰❱❲❳〈〉⦑⦒⧼⧽﹙﹚﹛﹜﹝﹞⁽⁾₍₎⦋⦌⦍⦎⦏⦐⁅⁆⸢⸣⸤⸥⟅⟆⦓⦔⦕⦖⸦⸧⸨⸩｟｠⧘⧙⧚⧛⸜⸝⸌⸍⸂⸃⸄⸅⸉⸊᚛᚜༺༻༼༽⏜⏝⎴⎵⏞⏟⏠⏡﹁﹂﹃﹄︹︺︻︼︗︘︿﹀︽︾﹇﹈︷︸")
-  (defvar xah-left-brackets '("(" "{" "[" "<" "〔" "【" "〖" "〈" "《" "「" "『" "“" "‘" "‹" "«" )
-    "List of left bracket chars.")
-  (progn
-    ;; make xah-left-brackets based on xah-brackets
-    (setq xah-left-brackets '())
-    (dotimes ($x (- (length xah-brackets) 1))
-      (when (= (% $x 2) 0)
-        (push (char-to-string (elt xah-brackets $x))
-              xah-left-brackets)))
-    (setq xah-left-brackets (reverse xah-left-brackets)))
-  (defvar xah-right-brackets '(")" "]" "}" ">" "〕" "】" "〗" "〉" "》" "」" "』" "”" "’" "›" "»")
-    "list of right bracket chars.")
-  (progn
-    (setq xah-right-brackets '())
-    (dotimes ($x (- (length xah-brackets) 1))
-      (when (= (% $x 2) 1)
-        (push (char-to-string (elt xah-brackets $x))
-              xah-right-brackets)))
-    (setq xah-right-brackets (reverse xah-right-brackets)))
-  (bind-key
-   "M-SPC M-9"
-   (lambda ()
-     "Move cursor to the previous occurrence of left bracket.
-The list of brackets to jump to is defined by `xah-left-brackets'.
-URL `http://ergoemacs.org/emacs/emacs_navigating_keys_for_brackets.html'
-Version 2015-10-01"
-     (interactive)
-     (search-backward-regexp (regexp-opt xah-left-brackets) nil t)))
-  (bind-key
-   "M-SPC M-0"
-   (lambda ()
-     "Move cursor to the next occurrence of right bracket.
-The list of brackets to jump to is defined by `xah-right-brackets'.
-URL `http://ergoemacs.org/emacs/emacs_navigating_keys_for_brackets.html'
-Version 2015-10-01"
-     (interactive)
-     (re-search-forward (regexp-opt xah-right-brackets) nil t)))
-  (defun xah-goto-matching-bracket ()
-    "Move cursor to the matching bracket.
-If cursor is not on a bracket, call `backward-up-list'.
-The list of brackets to jump to is defined by `xah-left-brackets' and `xah-right-brackets'.
-URL `http://ergoemacs.org/emacs/emacs_navigating_keys_for_brackets.html'
-Version 2016-11-22"
-    (if (nth 3 (syntax-ppss))
-        (ignore-errors (backward-up-list 1 'ESCAPE-STRINGS 'NO-SYNTAX-CROSSING))
-      (cond
-       ((eq (char-after) ?\") (forward-sexp))
-       ((eq (char-before) ?\") (backward-sexp))
-       ((looking-at (regexp-opt xah-left-brackets))
-        (forward-sexp))
-       ((looking-back (regexp-opt xah-right-brackets) (max (- (point) 1) 1))
-        (backward-sexp))
-       (t (ignore-errors (backward-up-list 1 'ESCAPE-STRINGS 'NO-SYNTAX-CROSSING))))))
-  ;; ref: https://wwwtech.de/articles/2013/may/emacs:-jump-to-matching-paren-beginning-of-block
-  ;; related: https://www.emacswiki.org/emacs/NavigatingParentheses
-  (defun my-matching-paren (with-shift)
-    "Go to the matching  if on (){}[]<>, similar to vi style of % "
-    (set-marker (mark-marker) (point))
-    (setq this-command-keys-shift-translated with-shift)
-    (handle-shift-selection)
-    (xah-goto-matching-bracket)
-    (my-recenter-no-redraw))
-  (bind-key "M-." (lambda () (interactive) (my-matching-paren nil)))  ; original M-. runs the command xref-find-definitions
-  (bind-key "M->" (lambda () (interactive) (my-matching-paren t)))
-
   :config
   (setq
    hl-paren-colors nil
@@ -2356,7 +2445,7 @@ Version 2016-07-23"
           ))
        (t
         (message "No bracket pair.")))))
-  (bind-key "M-SPC <backspace>" 'pair-del-pairs-or-region-2-ends)
+  (bind-key "M-SPC DEL" 'pair-del-pairs-or-region-2-ends)
   (defun xah-delete-backward-bracket-pair ()
     "Delete the matching brackets/quotes to the left of cursor.
 After the command, mark is set at the left matching bracket position, so you can `exchange-point-and-mark' to select it.
@@ -2458,87 +2547,88 @@ Version 2015-04-19"
   (setq beacon-blink-delay 0)
   (setq beacon-blink-duration 0.5))
 
-;; shows the buffer position in mode line, good for TTY
-;; https://www.emacswiki.org/emacs/SmlModeLine http://emacs-fu.blogspot.com/2010/03/showing-buffer-position-in-mode-line.html https://pastebin.com/d775fJxx
-(use-package sml-modeline
+;; sml is better than the original mode-line coz sml shows the full file path and original only shows the filename.
+;; Make your Emacs Mode Line more useful http://www.lunaryorn.com/2014/07/26/make-your-emacs-mode-line-more-useful.html
+;; Emacs: add hostname to mode line? http://stackoverflow.com/questions/778508
+(use-package smart-mode-line  ; and hl-line
   :defer 1
   :config
-  (setq sml-modeline-borders '("❚" . ""))  ; to unify the background color to make it less distracting
-  (defun set-sml-modeline-len () (setq sml-modeline-len (1+ (/ (window-total-width) 2))))  ; 1+ to make it covers center point.
-  (set-sml-modeline-len)
-  (add-hook 'window-configuration-change-hook #'set-sml-modeline-len)
-  (set-face-background 'sml-modeline-vis-face "#FFFFFF")  ; "white" doesn't work on tty
-  (sml-modeline-mode 1)
-  (defun sml-modeline-create ()  ; https://emacs.stackexchange.com/questions/33488/speed-up-sml-modeline-is-this-possible
-    (let* ((wstart (window-start))
-           (wend (window-end))
-           number-max number-beg number-end
-           (sml-begin (or (car sml-modeline-borders) ""))
-           (sml-end   (or (cdr sml-modeline-borders) ""))
-           (inner-len (- sml-modeline-len (length sml-begin) (length sml-end)))
-           bpad-len epad-len
-           pos-%
-           start end
-           string)
-      (if (not (or (< wend (save-restriction (widen) (point-max)))
-                   (> wstart 1)))
-          ""
-        (cond
-         ((eq sml-modeline-numbers 'percentage)
-          (setq number-max (save-restriction (widen) (point-max)))
-          (setq number-beg (/ (float wstart) (float number-max)))
-          (setq number-end (/ (float wend) (float number-max)))
-          (setq start (floor (* number-beg inner-len)))
-          (setq end (floor (* number-end inner-len)))
-          (setq string
-                (concat (format "%02d" (round (* number-beg 100)))
-                        "-"
-                        (format "%02d" (round (* number-end 100))) "%%")))
-         ((eq sml-modeline-numbers 'line-numbers)
-          (save-restriction
-            (widen)
-            (save-excursion (goto-char (point-max))
-                            (setq number-max (string-to-number (format-mode-line "%l")))
-                            (goto-char wstart)
-                            (setq number-beg (string-to-number (format-mode-line "%l")))
-                            (goto-char wend)
-                            (setq number-end (string-to-number (format-mode-line "%l"))))
-            )
-          (setq start (floor (* (/ number-beg (float number-max)) inner-len)))
-          (setq end   (floor (* (/ number-end (float number-max)) inner-len)))
-          (setq string
-                (concat "L"
-                        (format "%02d" number-beg)
-                        "-"
-                        (format "%02d" number-end))))
-         (t (error "Unknown sml-modeline-numbers=%S" sml-modeline-numbers)))
-        (setq inner-len (max inner-len (length string)))
-        (setq bpad-len (floor (/ (- inner-len (length string)) 2.0)))
-        (setq epad-len (- inner-len (length string) bpad-len))
-        (setq pos-% (+ bpad-len (length string) -1))
-        (setq string (concat sml-begin
-                             (make-string bpad-len 32)
-                             string
-                             (make-string epad-len 32)
-                             sml-end))
-        ;;(assert (= (length string) sml-modeline-len) t)
-        (when (= start sml-modeline-len) (setq start (1- start)))
-        (setq start (+ start (length sml-begin)))
-        (setq end   (+ end   (length sml-begin)))
-        (when (= start end) (setq end (1+ end)))
-        (when (= end pos-%) (setq end (1+ end))) ;; If on % add 1
-        (put-text-property start end 'face 'sml-modeline-vis-face string)
-        (when (and (= 0 (length sml-begin))
-                   (= 0 (length sml-end)))
-          (put-text-property 0 start 'face 'sml-modeline-end-face string)
-          (put-text-property end sml-modeline-len 'face 'sml-modeline-end-face string))
-        string)))
-  )
+  ;; shows the buffer position in mode line, good for TTY
+  ;; https://www.emacswiki.org/emacs/SmlModeLine http://emacs-fu.blogspot.com/2010/03/showing-buffer-position-in-mode-line.html https://pastebin.com/d775fJxx
+  (use-package sml-modeline
+    :config
+    (setq sml-modeline-borders '("❚" . ""))  ; to unify the background color to make it less distracting
+    (defun set-sml-modeline-len () (setq sml-modeline-len (1+ (/ (window-total-width) 2))))  ; 1+ to make it covers center point.
+    (set-sml-modeline-len)
+    (add-hook 'window-configuration-change-hook #'set-sml-modeline-len)
+    (set-face-background 'sml-modeline-vis-face "#FFFFFF")  ; "white" doesn't work on tty
+    (sml-modeline-mode 1)
+    (defun sml-modeline-create ()  ; https://emacs.stackexchange.com/questions/33488/speed-up-sml-modeline-is-this-possible
+      (let* ((wstart (window-start))
+             (wend (window-end))
+             number-max number-beg number-end
+             (sml-begin (or (car sml-modeline-borders) ""))
+             (sml-end   (or (cdr sml-modeline-borders) ""))
+             (inner-len (- sml-modeline-len (length sml-begin) (length sml-end)))
+             bpad-len epad-len
+             pos-%
+             start end
+             string)
+        (if (not (or (< wend (save-restriction (widen) (point-max)))
+                     (> wstart 1)))
+            ""
+          (cond
+           ((eq sml-modeline-numbers 'percentage)
+            (setq number-max (save-restriction (widen) (point-max)))
+            (setq number-beg (/ (float wstart) (float number-max)))
+            (setq number-end (/ (float wend) (float number-max)))
+            (setq start (floor (* number-beg inner-len)))
+            (setq end (floor (* number-end inner-len)))
+            (setq string
+                  (concat (format "%02d" (round (* number-beg 100)))
+                          "-"
+                          (format "%02d" (round (* number-end 100))) "%%")))
+           ((eq sml-modeline-numbers 'line-numbers)
+            (save-restriction
+              (widen)
+              (save-excursion (goto-char (point-max))
+                              (setq number-max (string-to-number (format-mode-line "%l")))
+                              (goto-char wstart)
+                              (setq number-beg (string-to-number (format-mode-line "%l")))
+                              (goto-char wend)
+                              (setq number-end (string-to-number (format-mode-line "%l"))))
+              )
+            (setq start (floor (* (/ number-beg (float number-max)) inner-len)))
+            (setq end   (floor (* (/ number-end (float number-max)) inner-len)))
+            (setq string
+                  (concat "L"
+                          (format "%02d" number-beg)
+                          "-"
+                          (format "%02d" number-end))))
+           (t (error "Unknown sml-modeline-numbers=%S" sml-modeline-numbers)))
+          (setq inner-len (max inner-len (length string)))
+          (setq bpad-len (floor (/ (- inner-len (length string)) 2.0)))
+          (setq epad-len (- inner-len (length string) bpad-len))
+          (setq pos-% (+ bpad-len (length string) -1))
+          (setq string (concat sml-begin
+                               (make-string bpad-len 32)
+                               string
+                               (make-string epad-len 32)
+                               sml-end))
+          ;;(assert (= (length string) sml-modeline-len) t)
+          (when (= start sml-modeline-len) (setq start (1- start)))
+          (setq start (+ start (length sml-begin)))
+          (setq end   (+ end   (length sml-begin)))
+          (when (= start end) (setq end (1+ end)))
+          (when (= end pos-%) (setq end (1+ end))) ;; If on % add 1
+          (put-text-property start end 'face 'sml-modeline-vis-face string)
+          (when (and (= 0 (length sml-begin))
+                     (= 0 (length sml-end)))
+            (put-text-property 0 start 'face 'sml-modeline-end-face string)
+            (put-text-property end sml-modeline-len 'face 'sml-modeline-end-face string))
+          string)))
+    )
 
-;; sml is better than the original mode-line coz sml shows the full file path and original only shows the filename.
-(use-package smart-mode-line  ; and hl-line
-  :after sml-modeline  ; because mode-line-format uses sml-modeline
-  :config
   ;; https://emacs.stackexchange.com/questions/16545/make-names-of-major-modes-shorter-in-the-mode-line
   ;; helm-mini major-mode column width also depend on mode-name https://github.com/emacs-helm/helm/pull/1311
   (defcustom mode-name-max-length 12
@@ -2580,7 +2670,7 @@ Version 2015-04-19"
 
   (global-hl-line-mode)
   (setq global-hl-line-sticky-flag t)
-  (set-face-attribute 'hl-line nil :underline nil :background "#E5F1E0")  ; the underline markup will hide underscore and bottom part of some other chars https://debbugs.gnu.org/db/20/20510.html
+  (set-face-attribute 'hl-line nil :underline nil :background "#EAF5E5")  ; the underline markup will hide underscore and bottom part of some other chars https://debbugs.gnu.org/db/20/20510.html
   (with-eval-after-load 'helm
     (set-face-background 'helm-selection (face-attribute 'hl-line :background))  ; unify line color, esp for TTY mode whose original helm-selection color = dark red
     (set-face-foreground 'helm-selection nil)
@@ -2609,10 +2699,9 @@ Version 2015-04-19"
       (setq ns-pop-up-frames nil)  ; when you double-click on a file in the Mac Finder open it as a buffer in the existing Emacs frame, rather than creating a new frame just for that file
       (setq helm-locate-command "mdfind -name %s %s")  ; use Spotlight to search file https://github.com/syl20bnr/spacemacs/issues/3280 alt: https://www.emacswiki.org/emacs/LocateFilesAnywhere
       (setq ring-bell-function (lambda () (message "################################################################################")))  ; mac visible-bell is weird https://www.reddit.com/r/emacs/comments/3omsr2/weird_display_issue_in_os_x/ https://www.reddit.com/r/emacs/comments/1a6z4n/can_i_make_emacs_beep_less/
-
       ;; PROBLEM: /usr/local/bin is not in Emacs shell path.
       ;; SOL: http://stackoverflow.com/questions/2266905/emacs-is-ignoring-my-path-when-it-runs-a-compile-command
-      ;; cannot use string-trim instead of replace-regexp-in-string (as the function is not loaded at this point)
+      ;; use replace-regexp-in-string instead of string-trim, which is not loaded at this point
       ;; alt: use exec-path-from-shell package http://emacs.stackexchange.com/questions/10722 https://github.com/purcell/exec-path-from-shell
       (let ((path-from-shell (replace-regexp-in-string "[[:space:]\n]*$" "" (shell-command-to-string "$SHELL -l -c 'echo $PATH'"))))
         (setenv "PATH" path-from-shell)
@@ -2621,7 +2710,6 @@ Version 2015-04-19"
       (setq mac-control-modifier 'meta
             mac-option-modifier  'hyper     ; don't rely on the middle modifier key, which is captured by OS on Linux; nil -> insert Greek symbols, which is annoying when i type it accidentally
             mac-command-modifier 'control)  ; default mac-command = super
-      ;; (setq frame-resize-pixelwise t)  ; get proper maximisation working on Mac
       )
 
   ;; Linux-only customization
